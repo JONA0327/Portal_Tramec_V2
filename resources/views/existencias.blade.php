@@ -7,13 +7,10 @@
 <x-layouts.dashboard>
 
     @php
-        $columnasPrecio = [
-            'canal_tmc' => 'CANAL TMC',
-            'canal' => 'CANAL',
-            'oem' => 'OEM',
-            'usuario_final' => 'USUARIO FINAL',
-            'precio_lista' => 'Precio de Lista',
-        ];
+        // Columnas de precio según el nivel del usuario (ver User::columnasPrecio()).
+        $columnasPrecio = auth()->user()->columnasPrecio();
+        $puedeCopiar = auth()->user()->puedeCopiarPrecios();
+        $esAdmin = auth()->user()->isAdmin();
     @endphp
 
     <div class="container-fluid">
@@ -28,14 +25,14 @@
                             @else
                                 Todavía sin sincronizar
                             @endif
-                            @if($counts['conflictos'] > 0)
+                            @if($esAdmin && $counts['conflictos'] > 0)
                                 &nbsp;·&nbsp;<a href="{{ route('existencias.inconsistencias') }}" class="text-warning">⚠ {{ $counts['conflictos'] }} inconsistencia(s) pendiente(s)</a>
                             @endif
-                            @if($counts['ocultos'] > 0)
-                                &nbsp;·&nbsp;<a href="{{ route('existencias', ['estado' => 'ocultos']) }}" class="text-muted">{{ $counts['ocultos'] }} ocultos</a>
+                            @if($esAdmin && $counts['ocultos'] > 0)
+                                &nbsp;·&nbsp;<a href="{{ route('existencias', ['modo' => 'avanzado', 'estado' => 'ocultos']) }}" class="text-muted">{{ $counts['ocultos'] }} ocultos</a>
                             @endif
-                            @if($counts['bajas'] > 0)
-                                &nbsp;·&nbsp;<a href="{{ route('existencias', ['estado' => 'bajas']) }}" class="text-muted">{{ $counts['bajas'] }} de baja</a>
+                            @if($esAdmin && $counts['bajas'] > 0)
+                                &nbsp;·&nbsp;<a href="{{ route('existencias', ['modo' => 'avanzado', 'estado' => 'bajas']) }}" class="text-muted">{{ $counts['bajas'] }} de baja</a>
                             @endif
                         </small>
                     </div>
@@ -60,44 +57,66 @@
                             </form>
                         @endcan
 
-                        <form method="GET" action="{{ route('existencias') }}" class="mb-3 d-flex flex-wrap" style="max-width: 900px; gap: 8px;">
-                            <select name="empresa" class="form-control" style="max-width: 170px;" onchange="this.form.submit()">
-                                <option value="">Todas las empresas</option>
-                                @foreach($empresas as $empresaOption)
-                                    <option value="{{ $empresaOption }}" @selected($empresa === $empresaOption)>{{ $empresaOption }}</option>
-                                @endforeach
-                            </select>
-                            <select name="almacen" class="form-control" style="max-width: 200px;" onchange="this.form.submit()">
-                                <option value="">Todos los almacenes</option>
-                                @foreach($almacenes as $almacenOption)
-                                    <option value="{{ $almacenOption }}" @selected($almacen === $almacenOption)>{{ $almacenOption }}</option>
-                                @endforeach
-                            </select>
-                            <select name="estado" class="form-control" style="max-width: 200px;" onchange="this.form.submit()">
-                                <option value="con_existencia" @selected($estado === 'con_existencia')>Solo con existencia</option>
-                                <option value="todos" @selected($estado === 'todos')>Todos (incluye en 0)</option>
-                                <option value="ocultos" @selected($estado === 'ocultos')>Ocultos</option>
-                                <option value="bajas" @selected($estado === 'bajas')>Dados de baja</option>
-                            </select>
-                            <input type="text" name="buscar" id="buscar-input" value="{{ $buscar }}" class="form-control"
-                                placeholder="Buscar por código o nombre..." style="max-width: 260px;">
-                        </form>
+                        <div class="btn-group mb-3" role="group" aria-label="Tipo de filtro">
+                            <a href="{{ route('existencias', ['modo' => 'clasico']) }}" class="btn btn-sm {{ $modo === 'clasico' ? 'btn-primary' : 'btn-outline-secondary' }}">Filtro clásico</a>
+                            <a href="{{ route('existencias', ['modo' => 'avanzado']) }}" class="btn btn-sm {{ $modo === 'avanzado' ? 'btn-primary' : 'btn-outline-secondary' }}">Filtro avanzado</a>
+                        </div>
 
-                        <script>
-                            // Busca solo mientras escribís (mismo comportamiento que en Productos):
-                            // el botón "Buscar" queda para los selects de arriba, que ya se
-                            // auto-envían con onchange.
-                            (function () {
-                                var input = document.getElementById('buscar-input');
-                                var timeoutId;
-                                input.addEventListener('input', function () {
-                                    clearTimeout(timeoutId);
-                                    timeoutId = setTimeout(function () {
-                                        input.form.submit();
-                                    }, 450);
-                                });
-                            })();
-                        </script>
+                        @if($modo === 'clasico')
+                            {{-- Como en v1: una sola caja que busca coincidencias de texto mientras se escribe. --}}
+                            <form method="GET" action="{{ route('existencias') }}" class="mb-3" style="max-width: 420px;">
+                                <input type="hidden" name="modo" value="clasico">
+                                <input type="text" name="buscar" id="buscar-input" value="{{ $buscar }}" class="form-control"
+                                    placeholder="Buscar en todas las existencias..." autocomplete="off" autofocus>
+                            </form>
+
+                            <script>
+                                (function () {
+                                    var input = document.getElementById('buscar-input'), timeoutId;
+                                    input.setSelectionRange(input.value.length, input.value.length); // tras recargar, el cursor al final
+                                    input.addEventListener('input', function () {
+                                        clearTimeout(timeoutId);
+                                        timeoutId = setTimeout(function () { input.form.submit(); }, 400);
+                                    });
+                                })();
+                            </script>
+                        @else
+                            {{-- Avanzado: empresa + almacén + estado + palabras (en cualquier orden); busca solo al
+                                 pulsar "Buscar" o Enter. "Agrupar por modelo" junta los almacenes de cada modelo en un renglón. --}}
+                            <form method="GET" action="{{ route('existencias') }}" class="mb-3 d-flex flex-wrap align-items-center" style="max-width: 1000px; gap: 8px;">
+                                <input type="hidden" name="modo" value="avanzado">
+                                <select name="empresa" class="form-control" style="max-width: 170px;" aria-label="Empresa">
+                                    <option value="">Todas las empresas</option>
+                                    @foreach($empresas as $empresaOption)
+                                        <option value="{{ $empresaOption }}" @selected($empresa === $empresaOption)>{{ $empresaOption }}</option>
+                                    @endforeach
+                                </select>
+                                <select name="almacen" class="form-control" style="max-width: 200px;" aria-label="Almacén">
+                                    <option value="">Todos los almacenes</option>
+                                    @foreach($almacenes as $almacenOption)
+                                        <option value="{{ $almacenOption }}" @selected($almacen === $almacenOption)>{{ $almacenOption }}</option>
+                                    @endforeach
+                                </select>
+                                <select name="estado" class="form-control" style="max-width: 200px;" aria-label="Estado">
+                                    <option value="con_existencia" @selected($estado === 'con_existencia')>Solo con existencia</option>
+                                    <option value="todos" @selected($estado === 'todos')>Todos (incluye en 0)</option>
+                                    @if($esAdmin)
+                                    <option value="ocultos" @selected($estado === 'ocultos')>Ocultos</option>
+                                    <option value="bajas" @selected($estado === 'bajas')>Dados de baja</option>
+                                    @endif
+                                </select>
+                                <input type="text" name="buscar" id="buscar-input" value="{{ $buscar }}" class="form-control"
+                                    placeholder="Palabras del código o nombre..." style="max-width: 260px;" autocomplete="off">
+                                <label class="d-flex align-items-center mb-0" style="gap: 6px; cursor: pointer; user-select: none;">
+                                    <input type="checkbox" name="agrupar" value="1" @checked($agrupar) style="width: 16px; height: 16px; min-width: 16px; padding: 0; margin: 0;">
+                                    Agrupar por modelo
+                                </label>
+                                <button type="submit" class="btn btn-primary">Buscar</button>
+                                @if($buscar !== '' || $empresa !== '' || $almacen !== '' || $estado !== 'con_existencia' || $agrupar)
+                                    <a href="{{ route('existencias', ['modo' => 'avanzado']) }}" class="btn btn-outline-secondary">Limpiar</a>
+                                @endif
+                            </form>
+                        @endif
 
                         @if($levels->isEmpty())
                             <p class="mb-0">
@@ -109,26 +128,83 @@
                                 @endif
                             </p>
                         @else
+                            @if($agrupar)
                             <div class="table-responsive">
                                 <table class="table table-bordered table-striped">
                                     <thead>
                                         <tr>
                                             <th>Código</th>
-                                            <th>Nombre</th>
+                                            <th>Descripción</th>
+                                            <th>Empresa</th>
+                                            @foreach($columnasPrecio as $label)
+                                                <th>{{ $label }}</th>
+                                            @endforeach
+                                            <th>Existencia por almacén</th>
+                                            <th>Total</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach($levels as $row)
+                                            <tr>
+                                                <td class="col-codigo">{{ $row['codigo'] }}</td>
+                                                <td class="col-nombre">{{ $row['descripcion'] }}</td>
+                                                <td>{{ $row['empresa'] }}</td>
+                                                @foreach($columnasPrecio as $key => $label)
+                                                    <td class="text-nowrap {{ $row[$key] !== null && $puedeCopiar ? 'copy-price-cell' : '' }} {{ isset($row['originales'][$key]) ? 'precio-ajustado' : '' }}"
+                                                        @isset($row['originales'][$key]) title="Precio original: {{ number_format($row['originales'][$key], 2, '.', ',') }} (ajustado por regla)" @endisset
+                                                        data-modelo="{{ $row['codigo'] }}" data-descripcion="{{ $row['descripcion'] }}">
+                                                        @if($row[$key] !== null)
+                                                            {{ number_format($row[$key], 2, '.', ',') }}&nbsp;{{ $row['moneda'] }}
+                                                            @if($puedeCopiar)
+                                                            <button type="button" class="copy-price-btn" title="Copiar Código, Descripción y {{ $label }}">
+                                                                <i class="fas fa-copy" aria-hidden="true"></i>
+                                                            </button>
+                                                            @endif
+                                                        @else
+                                                            -
+                                                        @endif
+                                                    </td>
+                                                @endforeach
+                                                <td>
+                                                    @foreach($row['almacenes'] as $alm)
+                                                        <{{ $esAdmin ? 'a' : 'span' }} @if($esAdmin) href="{{ route('existencias.edit', [$alm['empresa'], $alm['id_producto'], $alm['id_almacen']]) }}" @endif
+                                                            class="d-inline-block border rounded px-2 py-1 mr-1 mb-1 text-nowrap text-decoration-none {{ $alm['de_baja'] ? 'text-muted' : '' }}"
+                                                            @if($esAdmin) title="Editar existencia en {{ $alm['almacen'] }}" @endif>
+                                                            {{ $alm['almacen'] }}:
+                                                            <strong>{{ rtrim(rtrim(number_format($alm['cantidad'], 2, '.', ','), '0'), '.') ?: '0' }}</strong>
+                                                            @if($esAdmin && $alm['tiene_manual'])<span title="Cantidad editada a mano">✎</span>@endif
+                                                            @if($esAdmin && $alm['conflicto'])<span class="text-warning" title="El ERP cambió después de la edición manual">⚠</span>@endif
+                                                            @if($alm['de_baja'])<span class="badge bg-secondary">Baja</span>@endif
+                                                        </{{ $esAdmin ? 'a' : 'span' }}>
+                                                    @endforeach
+                                                </td>
+                                                <td class="text-nowrap"><strong>{{ rtrim(rtrim(number_format($row['total'], 2, '.', ','), '0'), '.') ?: '0' }}</strong></td>
+                                            </tr>
+                                        @endforeach
+                                    </tbody>
+                                </table>
+                            </div>
+                            @else
+                            <div class="table-responsive">
+                                <table class="table table-bordered table-striped">
+                                    <thead>
+                                        <tr>
+                                            <th>Código</th>
+                                            <th>Descripción</th>
                                             <th>Empresa</th>
                                             <th>Almacén</th>
                                             <th>Cantidad</th>
                                             @foreach($columnasPrecio as $label)
                                                 <th>{{ $label }}</th>
                                             @endforeach
-                                            <th>Acciones</th>
+                                            @if($esAdmin)<th>Acciones</th>@endif
                                         </tr>
                                     </thead>
                                     <tbody id="existencias-tbody">
                                         @foreach($levels as $row)
                                             <tr data-level-id="{{ $row['empresa'].':'.$row['id_producto'].':'.$row['id_almacen'] }}">
                                                 <td class="col-codigo">{{ $row['codigo'] }}</td>
-                                                <td class="col-nombre">{{ $row['nombre'] }}</td>
+                                                <td class="col-nombre">{{ $row['descripcion'] }}</td>
                                                 <td>{{ $row['empresa'] }}</td>
                                                 <td class="col-almacen">{{ $row['almacen'] }}</td>
                                                 <td class="col-cantidad">
@@ -144,19 +220,22 @@
                                                     @endif
                                                 </td>
                                                 @foreach($columnasPrecio as $key => $label)
-                                                    <td class="text-nowrap {{ $row[$key] !== null ? 'copy-price-cell' : '' }} {{ isset($row['originales'][$key]) ? 'precio-ajustado' : '' }}"
+                                                    <td class="text-nowrap {{ $row[$key] !== null && $puedeCopiar ? 'copy-price-cell' : '' }} {{ isset($row['originales'][$key]) ? 'precio-ajustado' : '' }}"
                                                         @isset($row['originales'][$key]) title="Precio original: {{ number_format($row['originales'][$key], 2, '.', ',') }} (ajustado por regla)" @endisset
-                                                        data-modelo="{{ $row['codigo'] }}" data-descripcion="{{ $row['nombre'] }}">
+                                                        data-modelo="{{ $row['codigo'] }}" data-descripcion="{{ $row['descripcion'] }}">
                                                         @if($row[$key] !== null)
                                                             {{ number_format($row[$key], 2, '.', ',') }}&nbsp;{{ $row['moneda'] }}
-                                                            <button type="button" class="copy-price-btn" title="Copiar Código, Nombre y {{ $label }}">
+                                                            @if($puedeCopiar)
+                                                            <button type="button" class="copy-price-btn" title="Copiar Código, Descripción y {{ $label }}">
                                                                 <i class="fas fa-copy" aria-hidden="true"></i>
                                                             </button>
+                                                            @endif
                                                         @else
                                                             -
                                                         @endif
                                                     </td>
                                                 @endforeach
+                                                @if($esAdmin)
                                                 <td class="text-nowrap">
                                                     @php
                                                         $rowUrlBase = route('existencias.edit', [$row['empresa'], $row['id_producto'], $row['id_almacen']]);
@@ -166,11 +245,14 @@
                                                         <a href="{{ route('existencias.confirm-baja', [$row['empresa'], $row['id_producto'], $row['id_almacen']]) }}" class="btn btn-sm btn-danger">Dar de baja</a>
                                                     @endif
                                                 </td>
+                                                @endif
                                             </tr>
                                         @endforeach
                                     </tbody>
                                 </table>
                             </div>
+
+                            @endif
 
                             <div class="mt-4">
                                 {{ $levels->links('pagination::bootstrap-5') }}

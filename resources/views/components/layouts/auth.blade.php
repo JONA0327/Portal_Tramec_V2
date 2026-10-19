@@ -99,29 +99,25 @@
             line-height: 1.6;
             max-width: 320px;
         }
-        {{-- Delta es una marca que TRAMEC representa/distribuye -- se muestra como marca
-             secundaria, separada de la principal por una línea, no como si fuera el
-             logo del portal. --}}
+        {{-- Marcas que TRAMEC representa (Delta y OMEC), sobre una franja blanca: el logo de
+             OMEC es azul oscuro y no se leería directo sobre el fondo azul marino del panel. --}}
         .ad-auth-decor-partner {
             margin-top: 32px;
-            padding-top: 20px;
-            border-top: 1px solid rgba(255, 255, 255, .14);
+            padding: 14px 20px;
+            background: #fff;
+            border-radius: 12px;
             display: flex;
             align-items: center;
-            gap: 14px;
-        }
-        .ad-auth-decor-partner .label {
-            font-size: 11px;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: .06em;
-            color: rgba(255, 255, 255, .45);
-            max-width: 90px;
-            line-height: 1.4;
+            justify-content: space-around;
+            gap: 24px;
+            max-width: 320px;
         }
         .ad-auth-decor-partner-logo {
-            max-width: 90px;
+            max-width: 110px;
+            max-height: 44px;
+            width: auto;
             height: auto;
+            object-fit: contain;
         }
 
         .ad-auth-content { padding: 56px 56px 48px; }
@@ -204,12 +200,12 @@
                     <div class="ad-auth-decor-brand">
                         <img src="{{ asset('Logo-Tramec-MX-removebg-preview.png') }}" alt="TRAMEC" class="ad-auth-decor-logo">
                     </div>
-                    <h3>Existencias y precios, siempre al día.</h3>
-                    <p>Consultá el catálogo, los precios por canal y las existencias por almacén de TRAMEC y OMEC en un solo lugar, sincronizado en tiempo real con el ERP.</p>
+                    <h3>Portal de Existencias y Precios</h3>
+                    <p>Herramienta para clientes y asociados que le permitirá consultar modelos, catálogos y precios de nuestros productos en tiempo real</p>
 
                     <div class="ad-auth-decor-partner">
-                        <span class="label">Representamos productos de</span>
                         <img src="{{ asset('delta-electronics-vector-logo-removebg-preview.png') }}" alt="Delta Electronics" class="ad-auth-decor-partner-logo">
+                        <img src="{{ asset(rawurlencode('omec logo.png')) }}" alt="OMEC" class="ad-auth-decor-partner-logo">
                     </div>
                 </div>
             </div>

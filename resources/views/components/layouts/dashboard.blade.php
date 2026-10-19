@@ -443,6 +443,7 @@
                      así que se agregan aquí mismo cuando se porten. --}}
                 <span class="menu-section-label">Menú</span>
                 <ul class="main-menu">
+                    @if(auth()->user()->puedeVer('inicio'))
                     <li>
                         <a href="{{ route('dashboard') }}" class="{{ request()->routeIs('dashboard') ? 'active' : '' }}">
                             <span class="icon-menu feather-icon">
@@ -457,6 +458,8 @@
                             <svg class="menu-chevron" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
                         </a>
                     </li>
+                    @endif
+                    @if(auth()->user()->puedeVer('productos'))
                     <li>
                         <a href="{{ route('products') }}" class="{{ request()->routeIs('products') || request()->routeIs('products.*') ? 'active' : '' }}">
                             <span class="icon-menu feather-icon">
@@ -473,6 +476,8 @@
                             <svg class="menu-chevron" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
                         </a>
                     </li>
+                    @endif
+                    @if(auth()->user()->puedeVer('almacenes'))
                     <li>
                         <a href="{{ route('warehouses') }}" class="{{ request()->routeIs('warehouses') || request()->routeIs('warehouses.*') ? 'active' : '' }}">
                             <span class="icon-menu feather-icon">
@@ -488,6 +493,8 @@
                             <svg class="menu-chevron" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
                         </a>
                     </li>
+                    @endif
+                    @if(auth()->user()->puedeVer('existencias'))
                     <li>
                         <a href="{{ route('existencias') }}" class="{{ request()->routeIs('existencias') || request()->routeIs('existencias.*') ? 'active' : '' }}">
                             <span class="icon-menu feather-icon">
@@ -503,6 +510,7 @@
                             <svg class="menu-chevron" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
                         </a>
                     </li>
+                    @endif
                     @if(auth()->user()->isAdmin())
                     <li>
                         <a href="{{ route('price-rules.index') }}" class="{{ request()->routeIs('price-rules.*') ? 'active' : '' }}">

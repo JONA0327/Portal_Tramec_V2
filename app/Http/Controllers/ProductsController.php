@@ -37,6 +37,13 @@ class ProductsController extends Controller
         $buscar = trim((string) $request->query('buscar', ''));
         $empresa = trim((string) $request->query('empresa', ''));
         $estado = trim((string) $request->query('estado', ''));
+        // clasico (v1): una caja que filtra por coincidencia de texto sobre todo el catálogo.
+        // avanzado: empresa + estado + búsqueda por palabras, solo al pulsar Buscar / Enter.
+        $modo = $request->query('modo') === 'avanzado' ? 'avanzado' : 'clasico';
+
+        if ($modo === 'clasico') {
+            $empresa = $estado = '';
+        }
 
         // Filtra productos "de única ocasión" (servicios/personalizaciones que se dan
         // de alta al facturar, sin ser catálogo real) — ver isOneOffErpItem(). No se
@@ -115,8 +122,10 @@ class ProductsController extends Controller
         }
 
         if ($buscar !== '') {
-            $filtered = $filtered->filter(function (array $r) use ($buscar) {
-                return Search::all($buscar, $r['codigo'], $r['nombre']);
+            $filtered = $filtered->filter(function (array $r) use ($buscar, $modo) {
+                return $modo === 'avanzado'
+                    ? Search::all($buscar, $r['codigo'], $r['nombre'])
+                    : Str::contains(implode(' ', [$r['erp_id'], $r['codigo'], $r['nombre'], $r['empresa']]), $buscar, true);
             });
         }
 
@@ -133,6 +142,7 @@ class ProductsController extends Controller
 
         return view('products', [
             'products' => $paginated,
+            'modo' => $modo,
             'buscar' => $buscar,
             'empresa' => $empresa,
             'estado' => $estado,

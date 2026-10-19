@@ -53,6 +53,19 @@ class ExistenciasController extends Controller
         $empresa = trim((string) $request->query('empresa', ''));
         $almacen = trim((string) $request->query('almacen', ''));
         $estado = $request->query('estado', 'con_existencia');
+        // clasico (v1): una caja que filtra por coincidencia de texto. avanzado: empresa + almacén +
+        // estado + palabras, solo al pulsar Buscar / Enter, y opcionalmente agrupado por modelo.
+        $modo = $request->query('modo') === 'avanzado' ? 'avanzado' : 'clasico';
+        $agrupar = $modo === 'avanzado' && $request->boolean('agrupar');
+
+        if ($modo === 'clasico') {
+            $empresa = $almacen = '';
+            $estado = 'con_existencia';
+        }
+
+        if (! $request->user()->isAdmin() && in_array($estado, ['ocultos', 'bajas'], true)) {
+            $estado = 'con_existencia'; // ocultos y bajas son de administración
+        }
 
         $productsByKey = collect($stock->getProducts())
             ->keyBy(fn (array $p) => ($p['empresa_codigo'] ?? 'TRAMEC').':'.$p['id']);
@@ -137,6 +150,7 @@ class ExistenciasController extends Controller
                 'id_almacen' => $level['id_almacen'],
                 'codigo' => $codigo,
                 'nombre' => $nombre,
+                'descripcion' => $precios?->description_short ?: $nombre, // descripción corta de products; si no hay, la del ERP
                 'almacen' => $almacenNombre ?: "Almacén #{$level['id_almacen']}",
                 'cantidad_erp' => $cantidadErp,
                 'cantidad' => $tieneManual ? (float) $override->cantidad_manual : $cantidadErp,
@@ -149,6 +163,11 @@ class ExistenciasController extends Controller
                 'originales' => $precioOriginal,
             ];
         });
+
+        // Nivel 10 (EXCLUSIVO PIEZAS PLÁSTICAS): en v1 solo veía el almacén MDG.
+        if ((int) $request->user()->level === 10) {
+            $rows = $rows->where('almacen', 'MDG')->values();
+        }
 
         // Conteos sobre el total sin filtrar, para que los avisos del header no
         // cambien según lo que se esté buscando en ese momento.
@@ -185,12 +204,30 @@ class ExistenciasController extends Controller
         }
 
         if ($buscar !== '') {
-            $filtered = $filtered->filter(function (array $r) use ($buscar) {
-                return Search::all($buscar, $r['codigo'], $r['nombre']);
+            $filtered = $filtered->filter(function (array $r) use ($buscar, $modo) {
+                return $modo === 'avanzado'
+                    ? Search::all($buscar, $r['codigo'], $r['descripcion'])
+                    : Str::contains(implode(' ', [$r['codigo'], $r['descripcion'], $r['empresa'], $r['almacen']]), $buscar, true);
             });
         }
 
         $filtered = $filtered->sortBy([['codigo', 'asc'], ['almacen', 'asc']])->values();
+
+        if ($agrupar) {
+            // Un renglón por modelo (empresa + código): precios una sola vez y, aparte, cada almacén con su cantidad.
+            $filtered = $filtered
+                ->groupBy(fn (array $r) => $r['empresa'].'|'.strtoupper($r['codigo']))
+                ->map(fn ($g) => $g->first() + [
+                    'almacenes' => $g->map(fn (array $r) => [
+                        'almacen' => $r['almacen'], 'cantidad' => $r['cantidad'], 'empresa' => $r['empresa'],
+                        'id_producto' => $r['id_producto'], 'id_almacen' => $r['id_almacen'],
+                        'tiene_manual' => $r['tiene_manual'], 'conflicto' => $r['conflicto'], 'de_baja' => $r['de_baja'],
+                    ])->sortBy('almacen')->values()->all(),
+                    'total' => $g->sum('cantidad'),
+                ])
+                ->values();
+        }
+
         $page = $request->integer('page', 1);
 
         $paginated = new LengthAwarePaginator(
@@ -203,6 +240,8 @@ class ExistenciasController extends Controller
 
         return view('existencias', [
             'levels' => $paginated,
+            'modo' => $modo,
+            'agrupar' => $agrupar,
             'buscar' => $buscar,
             'empresa' => $empresa,
             'almacen' => $almacen,

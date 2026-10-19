@@ -56,14 +56,14 @@ Route::get('/stock/estado', function () {
 // v1 además filtraba por marca/clasificación y traía import/export; eso todavía no
 // se porta acá.
 Route::get('/productos', [ProductsController::class, 'index'])
-    ->middleware(['auth', 'verified'])
+    ->middleware(['auth', 'verified', 'nivel:productos'])
     ->name('products');
 
 // Precios por canal, fusionado dentro del mismo catálogo de arriba: cada fila
 // del ERP se cruza con la tabla local `products` por idERP/idERP_empresa (ver
 // ProductErpMatcher). El nombre/código nunca se edita acá: lo mantiene al día
 // el ERP (ver App\Listeners\SyncLocalProductFromErp).
-Route::middleware(['auth', 'verified'])->prefix('productos')->name('products.')->group(function () {
+Route::middleware(['auth', 'verified', 'nivel:productos'])->prefix('productos')->name('products.')->group(function () {
     Route::post('/registrar', [ProductsController::class, 'register'])->name('register');
     Route::post('/bloquear', [ProductsController::class, 'block'])->name('block');
     Route::get('/{product}', [ProductsController::class, 'show'])->name('show');
@@ -77,10 +77,10 @@ Route::middleware(['auth', 'verified'])->prefix('productos')->name('products.')-
 // WarehouseErpMatcher), son muy pocas filas y así un nombre editado en
 // CONTPAQi se refleja solo, sin scheduler ni botón.
 Route::get('/almacenes', [WarehousesController::class, 'index'])
-    ->middleware(['auth', 'verified'])
+    ->middleware(['auth', 'verified', 'nivel:almacenes'])
     ->name('warehouses');
 
-Route::middleware(['auth', 'verified'])->prefix('almacenes')->name('warehouses.')->group(function () {
+Route::middleware(['auth', 'verified', 'nivel:almacenes'])->prefix('almacenes')->name('warehouses.')->group(function () {
     Route::post('/registrar', [WarehousesController::class, 'register'])->name('register');
     Route::get('/{warehouse}/eliminar', [WarehousesController::class, 'confirmDestroy'])->name('confirm-destroy');
     Route::delete('/{warehouse}', [WarehousesController::class, 'destroy'])->name('destroy');
@@ -91,7 +91,7 @@ Route::middleware(['auth', 'verified'])->prefix('almacenes')->name('warehouses.'
 // Se puede guardar un ajuste manual por encima (ver ExistenciaOverride), pero
 // nunca se toca el ERP ni servicio-stock desde acá.
 Route::get('/existencias', [ExistenciasController::class, 'index'])
-    ->middleware(['auth', 'verified'])
+    ->middleware(['auth', 'verified', 'nivel:existencias'])
     ->name('existencias');
 
 // Importación de Excel: solo ADMINISTRADOR, en dos pasos (importar -> revisar -> confirmar).
@@ -102,7 +102,7 @@ Route::middleware(['auth', 'verified', 'can:admin'])->prefix('existencias/import
     Route::post('/cancelar', [ExistenciasController::class, 'cancelarImportacion'])->name('.cancelar');
 });
 
-Route::middleware(['auth', 'verified'])->prefix('existencias')->name('existencias.')->group(function () {
+Route::middleware(['auth', 'verified', 'nivel:existencias', 'can:admin'])->prefix('existencias')->name('existencias.')->group(function () {
     Route::get('/inconsistencias', [ExistenciasController::class, 'inconsistencias'])->name('inconsistencias');
     Route::post('/inconsistencias/{override}/mantener', [ExistenciasController::class, 'mantenerManual'])->name('inconsistencias.mantener');
     Route::post('/inconsistencias/{override}/aceptar-erp', [ExistenciasController::class, 'aceptarErp'])->name('inconsistencias.aceptar-erp');

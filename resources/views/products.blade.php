@@ -19,10 +19,10 @@
                                 Catálogo aún sin sincronizar
                             @endif
                             @if($counts['nuevo'] > 0)
-                                &nbsp;·&nbsp;<a href="{{ route('products', ['estado' => 'nuevo']) }}" class="text-info">🆕 {{ $counts['nuevo'] }} nuevos</a>
+                                &nbsp;·&nbsp;<a href="{{ route('products', ['modo' => 'avanzado', 'estado' => 'nuevo']) }}" class="text-info">🆕 {{ $counts['nuevo'] }} nuevos</a>
                             @endif
                             @if($counts['advertencia'] > 0)
-                                &nbsp;·&nbsp;<a href="{{ route('products', ['estado' => 'advertencia']) }}" class="text-warning">⚠ {{ $counts['advertencia'] }} sin emparejar</a>
+                                &nbsp;·&nbsp;<a href="{{ route('products', ['modo' => 'avanzado', 'estado' => 'advertencia']) }}" class="text-warning">⚠ {{ $counts['advertencia'] }} sin emparejar</a>
                             @endif
                         </small>
                     </div>
@@ -36,38 +36,55 @@
                             <div class="alert alert-danger">{{ session('error') }}</div>
                         @endif
 
-                        <form method="GET" action="{{ route('products') }}" class="mb-3 d-flex flex-wrap" style="max-width: 780px; gap: 8px;">
-                            <select name="empresa" class="form-control" style="max-width: 170px;" onchange="this.form.submit()">
-                                <option value="">Todas las empresas</option>
-                                @foreach($empresas as $empresaOption)
-                                    <option value="{{ $empresaOption }}" @selected($empresa === $empresaOption)>{{ $empresaOption }}</option>
-                                @endforeach
-                            </select>
-                            <select name="estado" class="form-control" style="max-width: 190px;" onchange="this.form.submit()">
-                                <option value="" @selected($estado === '')>Todos los estados</option>
-                                <option value="normal" @selected($estado === 'normal')>Solo validados</option>
-                                <option value="nuevo" @selected($estado === 'nuevo')>🆕 Solo nuevos</option>
-                                <option value="advertencia" @selected($estado === 'advertencia')>⚠ Solo sin emparejar</option>
-                            </select>
-                            <input type="text" name="buscar" id="buscar-input" value="{{ $buscar }}" class="form-control"
-                                placeholder="Buscar por código o nombre..." style="max-width: 260px;">
-                        </form>
+                        <div class="btn-group mb-3" role="group" aria-label="Tipo de filtro">
+                            <a href="{{ route('products', ['modo' => 'clasico']) }}" class="btn btn-sm {{ $modo === 'clasico' ? 'btn-primary' : 'btn-outline-secondary' }}">Filtro clásico</a>
+                            <a href="{{ route('products', ['modo' => 'avanzado']) }}" class="btn btn-sm {{ $modo === 'avanzado' ? 'btn-primary' : 'btn-outline-secondary' }}">Filtro avanzado</a>
+                        </div>
 
-                        <script>
-                            // Busca solo mientras escribís (con un pequeño debounce para no mandar un
-                            // request por cada tecla): el botón "Buscar" queda para los selects de
-                            // arriba, que ya se auto-envían con onchange.
-                            (function () {
-                                var input = document.getElementById('buscar-input');
-                                var timeoutId;
-                                input.addEventListener('input', function () {
-                                    clearTimeout(timeoutId);
-                                    timeoutId = setTimeout(function () {
-                                        input.form.submit();
-                                    }, 450);
-                                });
-                            })();
-                        </script>
+                        @if($modo === 'clasico')
+                            {{-- Como en v1: una sola caja que busca coincidencias de texto en todo el
+                                 catálogo mientras se escribe. --}}
+                            <form method="GET" action="{{ route('products') }}" class="mb-3" style="max-width: 420px;">
+                                <input type="hidden" name="modo" value="clasico">
+                                <input type="text" name="buscar" id="buscar-input" value="{{ $buscar }}" class="form-control"
+                                    placeholder="Buscar en todos los productos..." autocomplete="off" autofocus>
+                            </form>
+
+                            <script>
+                                (function () {
+                                    var input = document.getElementById('buscar-input'), timeoutId;
+                                    input.setSelectionRange(input.value.length, input.value.length); // tras recargar, el cursor al final
+                                    input.addEventListener('input', function () {
+                                        clearTimeout(timeoutId);
+                                        timeoutId = setTimeout(function () { input.form.submit(); }, 400);
+                                    });
+                                })();
+                            </script>
+                        @else
+                            {{-- Avanzado: empresa + estado + palabras (en cualquier orden); busca solo al
+                                 pulsar "Buscar" o Enter. --}}
+                            <form method="GET" action="{{ route('products') }}" class="mb-3 d-flex flex-wrap" style="max-width: 860px; gap: 8px;">
+                                <input type="hidden" name="modo" value="avanzado">
+                                <select name="empresa" class="form-control" style="max-width: 170px;" aria-label="Empresa">
+                                    <option value="">Todas las empresas</option>
+                                    @foreach($empresas as $empresaOption)
+                                        <option value="{{ $empresaOption }}" @selected($empresa === $empresaOption)>{{ $empresaOption }}</option>
+                                    @endforeach
+                                </select>
+                                <select name="estado" class="form-control" style="max-width: 190px;" aria-label="Estado">
+                                    <option value="" @selected($estado === '')>Todos los estados</option>
+                                    <option value="normal" @selected($estado === 'normal')>Solo validados</option>
+                                    <option value="nuevo" @selected($estado === 'nuevo')>🆕 Solo nuevos</option>
+                                    <option value="advertencia" @selected($estado === 'advertencia')>⚠ Solo sin emparejar</option>
+                                </select>
+                                <input type="text" name="buscar" id="buscar-input" value="{{ $buscar }}" class="form-control"
+                                    placeholder="Palabras del código o nombre..." style="max-width: 260px;" autocomplete="off">
+                                <button type="submit" class="btn btn-primary">Buscar</button>
+                                @if($buscar !== '' || $empresa !== '' || $estado !== '')
+                                    <a href="{{ route('products', ['modo' => 'avanzado']) }}" class="btn btn-outline-secondary">Limpiar</a>
+                                @endif
+                            </form>
+                        @endif
 
                         @if($products->isEmpty())
                             <p class="mb-0">

@@ -6,7 +6,7 @@
                 <div class="card">
                     <div class="card-header d-flex justify-content-between align-items-center">
                         <span>Editar: {{ $product->name }}</span>
-                        <a href="{{ route('products.show', $product) }}" class="btn btn-sm btn-secondary">Cancelar</a>
+                        <a href="{{ route('products') }}" class="btn btn-sm btn-secondary">Cancelar</a>
                     </div>
 
                     <div class="card-body">

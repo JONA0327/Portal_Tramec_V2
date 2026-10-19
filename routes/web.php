@@ -96,7 +96,7 @@ Route::get('/existencias', [ExistenciasController::class, 'index'])
 
 // Importación de Excel: solo ADMINISTRADOR, en dos pasos (importar -> revisar -> confirmar).
 Route::middleware(['auth', 'verified', 'can:admin'])->prefix('existencias/importar')->name('existencias.importar')->group(function () {
-    Route::post('/', [ExistenciasController::class, 'importar']);
+    Route::post('/', [ExistenciasController::class, 'importar'])->name('');
     Route::get('/revisar', [ExistenciasController::class, 'revisarImportacion'])->name('.revisar');
     Route::post('/confirmar', [ExistenciasController::class, 'confirmarImportacion'])->name('.confirmar');
     Route::post('/cancelar', [ExistenciasController::class, 'cancelarImportacion'])->name('.cancelar');

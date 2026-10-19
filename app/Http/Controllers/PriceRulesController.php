@@ -105,8 +105,8 @@ class PriceRulesController extends Controller
             'columnas.*' => [Rule::in(array_keys(PriceRule::COLUMNAS))],
             'niveles' => ['nullable', 'array'],
             'niveles.*' => [Rule::in(array_keys(PriceRule::NIVELES))],
-            'excluidos' => ['nullable', 'array', 'max:5000'],
-            'excluidos.*' => ['string', 'max:100'],
+            'incluidos' => ['nullable', 'array', 'max:5000'],
+            'incluidos.*' => ['string', 'max:100'],
             'usuarios' => ['nullable', 'array'],
             'usuarios.*' => ['integer', 'exists:users,id'],
         ]);
@@ -114,7 +114,7 @@ class PriceRulesController extends Controller
         $data['activo'] = $request->boolean('activo');
         $data['niveles'] = array_map('intval', $data['niveles'] ?? []) ?: null;
         $data['usuarios'] = array_map('intval', $data['usuarios'] ?? []) ?: null;
-        $data['excluidos'] = array_values(array_unique(array_map(fn ($c) => strtoupper(trim($c)), $data['excluidos'] ?? []))) ?: null;
+        $data['incluidos'] = array_values(array_unique(array_map(fn ($c) => strtoupper(trim($c)), $data['incluidos'] ?? []))) ?: null;
 
         return $data;
     }

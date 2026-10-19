@@ -3,7 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Str;
+use App\Support\Search;
 
 class PriceRule extends Model
 {
@@ -31,7 +31,7 @@ class PriceRule extends Model
         10 => 'EXCLUSIVO PIEZAS PLÁSTICAS',
     ];
 
-    protected $fillable = ['nombre', 'tipo', 'porcentaje', 'buscar', 'campo', 'excluidos', 'columnas', 'niveles', 'usuarios', 'activo'];
+    protected $fillable = ['nombre', 'tipo', 'porcentaje', 'buscar', 'campo', 'incluidos', 'columnas', 'niveles', 'usuarios', 'activo'];
 
     protected function casts(): array
     {
@@ -40,7 +40,7 @@ class PriceRule extends Model
             'columnas' => 'array',
             'niveles' => 'array',
             'usuarios' => 'array',
-            'excluidos' => 'array',
+            'incluidos' => 'array',
             'activo' => 'boolean',
         ];
     }
@@ -57,14 +57,14 @@ class PriceRule extends Model
             && (empty($this->usuarios) || ($user !== null && in_array($user->id, array_map('intval', $this->usuarios), true)));
     }
 
-    /** Coincide con el filtro de texto Y no está excluido a mano. */
+    /** Coincide con el filtro de texto Y, si se eligieron productos a mano, está entre ellos. */
     public function matches(string $codigo, string $nombre): bool
     {
         return $this->matchesFilter($codigo, $nombre)
-            && ! in_array(strtoupper(trim($codigo)), $this->excluidos ?? [], true);
+            && (empty($this->incluidos) || in_array(strtoupper(trim($codigo)), $this->incluidos, true));
     }
 
-    /** Solo el filtro de texto (lo que lista la vista previa para elegir exclusiones). */
+    /** Solo el filtro de texto (lo que lista la vista previa para elegir productos). */
     public function matchesFilter(string $codigo, string $nombre): bool
     {
         $terms = array_filter(array_map('trim', explode(',', (string) $this->buscar)));
@@ -74,8 +74,9 @@ class PriceRule extends Model
         }
 
         foreach ($terms as $term) {
-            if (($this->campo !== 'nombre' && Str::contains($codigo, $term, true))
-                || ($this->campo !== 'codigo' && Str::contains($nombre, $term, true))) {
+            $campos = match ($this->campo) { 'codigo' => [$codigo], 'nombre' => [$nombre], default => [$codigo, $nombre] };
+
+            if (Search::all($term, ...$campos)) {
                 return true;
             }
         }

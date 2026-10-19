@@ -30,6 +30,14 @@ class PriceRuleTest extends TestCase
         $this->assertTrue($this->rule(['buscar' => ''])->matches('X', 'Y'));
     }
 
+    public function test_busca_por_palabras_en_cualquier_orden(): void
+    {
+        $this->assertTrue($this->rule(['buscar' => '10hp 215t'])->matches('10HP 4P 215T F', 'MOTOR 10HP 4P 215T 230/460 TEFC'));
+        $this->assertTrue($this->rule(['buscar' => '215t motor'])->matches('X', 'MOTOR 10HP 4P 215T'));
+        $this->assertFalse($this->rule(['buscar' => '10hp 999'])->matches('X', 'MOTOR 10HP 4P 215T'));
+        $this->assertFalse($this->rule(['buscar' => 'motor', 'campo' => 'codigo'])->matches('10HP', 'MOTOR 10HP'));
+    }
+
     public function test_solo_afecta_las_columnas_elegidas(): void
     {
         $r = $this->rule([]);
@@ -38,13 +46,14 @@ class PriceRuleTest extends TestCase
         $this->assertFalse($r->appliesTo('oem', 'A', 'B'));
     }
 
-    public function test_excluidos_quedan_fuera_aunque_coincidan(): void
+    public function test_incluidos_limitan_la_regla_a_los_elegidos(): void
     {
-        $r = $this->rule(['buscar' => 'ah', 'excluidos' => ['AH04AD-5A']]);
+        $r = $this->rule(['buscar' => 'ah', 'incluidos' => ['AH04AD-5A']]);
 
-        $this->assertFalse($r->matches(' ah04ad-5a ', 'Variador'));
-        $this->assertTrue($r->matchesFilter('AH04AD-5A', 'Variador'));
-        $this->assertTrue($r->matches('AH04DA-5A', 'Variador'));
+        $this->assertTrue($r->matches(' ah04ad-5a ', 'Variador'));
+        $this->assertFalse($r->matches('AH04DA-5A', 'Variador'));
+        $this->assertFalse($r->matches('XYZ', 'Otro')); // elegido o no, debe pasar el filtro de texto
+        $this->assertTrue($this->rule(['buscar' => 'ah'])->matches('AH04DA-5A', 'Variador')); // sin elegidos = todos
     }
 
     public function test_usuarios_especificos(): void

@@ -66,9 +66,9 @@
                                     <button type="button" class="btn btn-sm btn-outline-secondary" id="marcar-ninguno">Quitar todos</button>
                                 </div>
                                 <div id="preview-lista" class="small" style="max-height: 280px; overflow-y: auto;"></div>
-                                <div class="form-text">Desmarcá los productos a los que esta regla <strong>no</strong> debe aplicar.</div>
+                                <div class="form-text">Marcá los productos a los que aplica la regla. Si no marcás ninguno, aplica a todos los de esta lista.</div>
                             </div>
-                            <div id="excluidos-inputs"></div>
+                            <div id="incluidos-inputs"></div>
 
                             <div class="mb-3">
                                 <label class="form-label d-block">Precios que se modifican</label>
@@ -97,12 +97,15 @@
                                 <label class="form-label" for="usuarios">Usuarios específicos</label>
                                 <input type="search" id="usuarios-filtro" class="form-control form-control-sm mb-1" placeholder="Filtrar lista…" autocomplete="off">
                                 @php $selUsers = array_map('intval', old('usuarios', $rule->usuarios ?? [])); @endphp
-                                <select id="usuarios" name="usuarios[]" class="form-control" multiple size="7">
+                                <div id="usuarios-lista" class="border rounded p-2 small" style="max-height: 220px; overflow-y: auto;">
                                     @foreach($users as $u)
-                                        <option value="{{ $u->id }}" @selected(in_array($u->id, $selUsers, true))>{{ $u->first_name }} {{ $u->last_name }} — {{ $u->email }}</option>
+                                        <label class="d-flex align-items-start mb-1" style="gap: 8px; cursor: pointer;" data-t="{{ mb_strtolower($u->first_name.' '.$u->last_name.' '.$u->email) }}">
+                                            <input type="checkbox" name="usuarios[]" value="{{ $u->id }}" class="flex-shrink-0" style="margin-top: 4px;" @checked(in_array($u->id, $selUsers, true))>
+                                            <span>{{ $u->first_name }} {{ $u->last_name }} — {{ $u->email }}</span>
+                                        </label>
                                     @endforeach
-                                </select>
-                                <div class="form-text">Ctrl/Cmd + clic para varios. Sin elegir ninguno = no se limita por usuario (solo por nivel).</div>
+                                </div>
+                                <div class="form-text">Marcá los usuarios a los que aplica. Sin marcar ninguno = no se limita por usuario (solo por nivel).</div>
                             </div>
 
                             <div class="form-check mb-4">
@@ -123,77 +126,99 @@
             var buscar = document.getElementById('buscar'), campo = document.getElementById('campo'),
                 resumen = document.getElementById('preview-resumen'), lista = document.getElementById('preview-lista'),
                 controles = document.getElementById('preview-controles'), filtro = document.getElementById('preview-filtro'),
-                form = buscar.form, t, items = [], loaded = false,
-                excluidos = new Set(@json(array_values(old('excluidos', $rule->excluidos ?? []))));
+                form = buscar.form, todos = null, items = [], loaded = false, truncado = '',
+                elegidos = new Set(@json(array_values(old('incluidos', $rule->incluidos ?? []))));
 
             function esc(s) { var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
 
             function updateResumen() {
-                var ex = items.filter(function (i) { return excluidos.has(i.c.toUpperCase()); }).length;
-                resumen.innerHTML = '<strong>' + (items.length - ex) + '</strong> de ' + items.length + ' producto(s) coinciden'
-                    + (ex ? ' <span class="text-muted">(' + ex + ' excluido(s))</span>' : '');
+                var n = items.filter(function (i) { return elegidos.has(i.c.toUpperCase()); }).length;
+                resumen.innerHTML = (n
+                    ? '<strong>' + n + '</strong> de ' + items.length + ' producto(s) elegido(s): la regla aplica solo a ellos'
+                    : 'Sin selección: la regla aplica a los <strong>' + items.length + '</strong> producto(s) que coinciden')
+                    + truncado;
             }
 
             function render() {
-                var q = filtro.value.toLowerCase();
-                lista.innerHTML = items.map(function (i, n) {
-                    var id = 'p' + n, on = !excluidos.has(i.c.toUpperCase());
-                    return '<div class="form-check" data-t="' + esc((i.c + ' ' + i.n).toLowerCase()) + '"' + (q && (i.c + ' ' + i.n).toLowerCase().indexOf(q) < 0 ? ' hidden' : '') + '>'
-                        + '<input class="form-check-input" type="checkbox" id="' + id + '" data-c="' + esc(i.c.toUpperCase()) + '"' + (on ? ' checked' : '') + '>'
-                        + '<label class="form-check-label" for="' + id + '">' + esc(i.c) + (i.n && i.n !== i.c ? ' — ' + esc(i.n) : '') + '</label></div>';
+                var q = filtro.value;
+                lista.innerHTML = items.map(function (i) {
+                    var texto = (i.c + ' ' + i.n).toLowerCase();
+                    return '<label class="d-flex align-items-start mb-1" style="gap: 8px; cursor: pointer;" data-t="' + esc(texto) + '"' + (q.trim() && !coincide(texto, q) ? ' hidden' : '') + '>'
+                        + '<input type="checkbox" class="flex-shrink-0" style="margin-top: 4px;" data-c="' + esc(i.c.toUpperCase()) + '"' + (elegidos.has(i.c.toUpperCase()) ? ' checked' : '') + '>'
+                        + '<span>' + esc(i.c) + (i.n && i.n !== i.c ? ' — ' + esc(i.n) : '') + '</span></label>';
                 }).join('');
                 controles.hidden = items.length === 0;
                 updateResumen();
             }
 
-            function refresh() {
-                var url = @json(route('price-rules.preview')) + '?buscar=' + encodeURIComponent(buscar.value) + '&campo=' + campo.value;
-                fetch(url, {headers: {Accept: 'application/json'}}).then(function (r) { return r.json(); }).then(function (d) {
-                    items = d.items; loaded = true;
-                    if (d.total > items.length) { resumen.textContent = 'Demasiados productos (' + d.total + '): afiná la búsqueda para poder elegirlos.'; }
-                    render();
-                    if (d.total > items.length) { resumen.textContent = 'Se muestran los primeros ' + items.length + ' de ' + d.total + ': afiná la búsqueda para ver el resto.'; }
-                }).catch(function () { resumen.textContent = 'No se pudo calcular la vista previa.'; });
+            // Misma regla que App\Support\Search: cada palabra debe aparecer, en cualquier orden.
+            function coincide(texto, q) {
+                texto = texto.toLowerCase();
+                return q.toLowerCase().split(/\s+/).filter(Boolean).every(function (w) { return texto.indexOf(w) >= 0; });
             }
+
+            // Misma regla que PriceRule::matchesFilter: términos separados por coma (cualquiera), vacío = todos.
+            function aplicaFiltro(i) {
+                var terms = buscar.value.split(',').map(function (x) { return x.trim(); }).filter(Boolean);
+                if (!terms.length) { return true; }
+                var texto = campo.value === 'codigo' ? i.c : campo.value === 'nombre' ? i.n : i.c + ' ' + i.n;
+                return terms.some(function (term) { return coincide(texto, term); });
+            }
+
+            // Filtra al instante, mientras se escribe, sobre el catálogo ya cargado (una sola descarga).
+            function refresh() {
+                if (!todos) { return; }
+                items = todos.filter(aplicaFiltro);
+                render();
+            }
+
+            fetch(@json(route('price-rules.preview')) + '?buscar=&campo=ambos', {headers: {Accept: 'application/json'}})
+                .then(function (r) { return r.json(); })
+                .then(function (d) {
+                    todos = d.items; loaded = true;
+                    truncado = d.total > todos.length ? ' <span class="text-muted">(catálogo recortado a ' + todos.length + ' de ' + d.total + ')</span>' : '';
+                    refresh();
+                })
+                .catch(function () { resumen.textContent = 'No se pudo cargar el catálogo para la vista previa.'; });
 
             lista.addEventListener('change', function (e) {
                 var c = e.target.getAttribute('data-c');
                 if (c === null) { return; }
-                e.target.checked ? excluidos.delete(c) : excluidos.add(c);
+                e.target.checked ? elegidos.add(c) : elegidos.delete(c);
                 updateResumen();
             });
             function marcarVisibles(on) {
-                Array.prototype.forEach.call(lista.querySelectorAll('.form-check:not([hidden]) input'), function (cb) {
-                    cb.checked = on; on ? excluidos.delete(cb.getAttribute('data-c')) : excluidos.add(cb.getAttribute('data-c'));
+                Array.prototype.forEach.call(lista.querySelectorAll('label:not([hidden]) input'), function (cb) {
+                    cb.checked = on; on ? elegidos.add(cb.getAttribute('data-c')) : elegidos.delete(cb.getAttribute('data-c'));
                 });
                 updateResumen();
             }
             document.getElementById('marcar-todos').addEventListener('click', function () { marcarVisibles(true); });
             document.getElementById('marcar-ninguno').addEventListener('click', function () { marcarVisibles(false); });
             filtro.addEventListener('input', function () {
-                var q = this.value.toLowerCase();
-                Array.prototype.forEach.call(lista.children, function (d) { d.hidden = q !== '' && d.getAttribute('data-t').indexOf(q) < 0; });
+                var q = this.value;
+                Array.prototype.forEach.call(lista.children, function (d) { d.hidden = q.trim() !== '' && !coincide(d.getAttribute('data-t'), q); });
             });
 
-            // Al enviar: cada producto desmarcado de la lista actual viaja como excluidos[].
+            // Al enviar: cada producto marcado de la lista actual viaja como incluidos[].
             form.addEventListener('submit', function () {
-                var box = document.getElementById('excluidos-inputs'), vigentes = new Set(items.map(function (i) { return i.c.toUpperCase(); }));
+                var box = document.getElementById('incluidos-inputs'), vigentes = new Set(items.map(function (i) { return i.c.toUpperCase(); }));
                 box.innerHTML = '';
-                excluidos.forEach(function (c) {
+                elegidos.forEach(function (c) {
                     if (loaded && !vigentes.has(c)) { return; } // ya no coincide con el filtro: se descarta
-                    var h = document.createElement('input'); h.type = 'hidden'; h.name = 'excluidos[]'; h.value = c; box.appendChild(h);
+                    var h = document.createElement('input'); h.type = 'hidden'; h.name = 'incluidos[]'; h.value = c; box.appendChild(h);
                 });
             });
 
-            buscar.addEventListener('input', function () { clearTimeout(t); t = setTimeout(refresh, 300); });
+            buscar.addEventListener('input', refresh);
             campo.addEventListener('change', refresh);
-            refresh();
 
             document.getElementById('usuarios-filtro').addEventListener('input', function () {
                 var q = this.value.toLowerCase();
-                Array.prototype.forEach.call(document.getElementById('usuarios').options, function (o) {
-                    o.hidden = q !== '' && !o.selected && o.text.toLowerCase().indexOf(q) === -1;
+                Array.prototype.forEach.call(document.getElementById('usuarios-lista').children, function (l) {
+                    l.hidden = q.trim() !== '' && !coincide(l.getAttribute('data-t'), q);
                 });
+            });
             });
         })();
     </script>

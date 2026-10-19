@@ -55,8 +55,8 @@
                                                         «{{ $rule->buscar }}» en {{ $rule->campo === 'ambos' ? 'código o nombre' : $rule->campo }}
                                                         <small class="text-muted">({{ $counts[$rule->id] }} de {{ $totalCatalog }})</small>
                                                     @endif
-                                                    @if($rule->excluidos)
-                                                        <div class="small text-muted" title="{{ implode(', ', $rule->excluidos) }}">{{ count($rule->excluidos) }} excluido(s)</div>
+                                                    @if($rule->incluidos)
+                                                        <div class="small text-muted" title="{{ implode(', ', $rule->incluidos) }}">Solo {{ count($rule->incluidos) }} elegido(s) a mano</div>
                                                     @endif
                                                 </td>
                                                 <td>{{ collect($rule->columnas)->map(fn ($c) => \App\Models\PriceRule::COLUMNAS[$c] ?? $c)->implode(', ') }}</td>

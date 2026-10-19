@@ -18,6 +18,7 @@ use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use App\Support\Search;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
 
@@ -185,8 +186,7 @@ class ExistenciasController extends Controller
 
         if ($buscar !== '') {
             $filtered = $filtered->filter(function (array $r) use ($buscar) {
-                return Str::contains($r['codigo'], $buscar, true)
-                    || Str::contains($r['nombre'], $buscar, true);
+                return Search::all($buscar, $r['codigo'], $r['nombre']);
             });
         }
 

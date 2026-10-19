@@ -9,6 +9,7 @@ use App\Services\StockService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
+use App\Support\Search;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
 
@@ -115,8 +116,7 @@ class ProductsController extends Controller
 
         if ($buscar !== '') {
             $filtered = $filtered->filter(function (array $r) use ($buscar) {
-                return Str::contains($r['codigo'], $buscar, true)
-                    || Str::contains($r['nombre'], $buscar, true);
+                return Search::all($buscar, $r['codigo'], $r['nombre']);
             });
         }
 

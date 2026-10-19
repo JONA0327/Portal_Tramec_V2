@@ -56,7 +56,7 @@ class PriceAdjuster
     private function rules(): Collection
     {
         return $this->rules ??= PriceRule::where('activo', true)->orderBy('id')->get()
-            ->filter(fn (PriceRule $r) => $r->visibleToLevel(Auth::user()?->level))
+            ->filter(fn (PriceRule $r) => $r->visibleTo(Auth::user()))
             ->values();
     }
 }

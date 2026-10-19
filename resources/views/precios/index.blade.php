@@ -33,7 +33,7 @@
                                             <th>Cambio</th>
                                             <th>Productos</th>
                                             <th>Precios</th>
-                                            <th>Niveles</th>
+                                            <th>Niveles / usuarios</th>
                                             <th>Estado</th>
                                             <th>Acciones</th>
                                         </tr>
@@ -58,7 +58,10 @@
                                                 </td>
                                                 <td>{{ collect($rule->columnas)->map(fn ($c) => \App\Models\PriceRule::COLUMNAS[$c] ?? $c)->implode(', ') }}</td>
                                                 <td>
-                                                    {{ $rule->niveles ? collect($rule->niveles)->map(fn ($n) => \App\Models\PriceRule::NIVELES[$n] ?? $n)->implode(', ') : 'Todos' }}
+                                                    {{ $rule->niveles ? collect($rule->niveles)->map(fn ($n) => \App\Models\PriceRule::NIVELES[$n] ?? $n)->implode(', ') : ($rule->usuarios ? '' : 'Todos') }}
+                                                    @if($rule->usuarios)
+                                                        <div class="small">Usuarios: {{ collect($rule->usuarios)->map(fn ($id) => isset($usuariosPorId[$id]) ? $usuariosPorId[$id]->first_name.' '.$usuariosPorId[$id]->last_name : "#$id")->implode(', ') }}</div>
+                                                    @endif
                                                 </td>
                                                 <td>{{ $rule->activo ? 'Activa' : 'Inactiva' }}</td>
                                                 <td class="text-nowrap">

@@ -16,6 +16,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
@@ -76,13 +77,14 @@ class ExistenciasController extends Controller
             $warehouseNamesByKey = collect(Cache::get('stock_service.warehouse_names', []));
         }
 
+        // alias > nombre local > nombre crudo del ERP (ej. el almacén 0 de TRAMEC es "(Ninguno)" en
+        // CONTPAQi pero "DELTA Schenker" acá; ver WarehouseErpMatcher).
         $warehouseAliasesByKey = Warehouse::query()
             ->whereNotNull('idERP_empresa')
             ->whereNotNull('almacen_erp_id')
-            ->whereNotNull('alias')
             ->get()
             ->mapWithKeys(fn (Warehouse $w) => [
-                strtoupper($w->idERP_empresa).':'.$w->almacen_erp_id => $w->alias,
+                strtoupper($w->idERP_empresa).':'.$w->almacen_erp_id => $w->alias ?: $w->name,
             ]);
 
         $localPricesByKey = Product::query()
@@ -91,21 +93,34 @@ class ExistenciasController extends Controller
             ->get()
             ->keyBy(fn (Product $p) => strtoupper($p->idERP_empresa).':'.$p->idERP);
 
+        $localPricesByName = Product::query()->get()->keyBy(fn (Product $p) => strtoupper(trim($p->name)));
+
         $overridesByKey = ExistenciaOverride::all()->keyBy->key();
 
-        $rows = collect($stockLevels->getLevels())->map(function (array $level) use ($adjuster, $productsByKey, $warehouseNamesByKey, $warehouseAliasesByKey, $localPricesByKey, $overridesByKey) {
+        // Overrides con cantidad manual que el ERP no trae (Excel / sin nivel en el ERP): se
+        // muestran igual, como un nivel con cantidad ERP en 0.
+        $levels = collect($stockLevels->getLevels());
+        $erpKeys = $levels->mapWithKeys(fn (array $l) => [($l['empresa_codigo'] ?? 'TRAMEC').':'.$l['id_producto'].':'.$l['id_almacen'] => true]);
+        $soloManuales = $overridesByKey
+            ->filter(fn (ExistenciaOverride $o) => $o->cantidad_manual !== null && ! $erpKeys->has($o->key()))
+            ->map(fn (ExistenciaOverride $o) => [
+                'empresa_codigo' => $o->empresa, 'id_producto' => $o->id_producto,
+                'id_almacen' => $o->id_almacen, 'cantidad' => 0,
+            ]);
+
+        $rows = $levels->concat($soloManuales)->map(function (array $level) use ($adjuster, $productsByKey, $warehouseNamesByKey, $warehouseAliasesByKey, $localPricesByKey, $localPricesByName, $overridesByKey) {
             $empresaCodigo = $level['empresa_codigo'] ?? 'TRAMEC';
             $producto = $productsByKey->get("{$empresaCodigo}:{$level['id_producto']}");
             $almacenKey = "{$empresaCodigo}:{$level['id_almacen']}";
             $almacenNombre = $warehouseAliasesByKey->get($almacenKey) ?? $warehouseNamesByKey->get($almacenKey);
-            $precios = $localPricesByKey->get("{$empresaCodigo}:{$level['id_producto']}");
-
             $override = $overridesByKey->get("{$empresaCodigo}:{$level['id_producto']}:{$level['id_almacen']}");
+            $precios = $localPricesByKey->get("{$empresaCodigo}:{$level['id_producto']}")
+                ?? ($override?->codigo ? $localPricesByName->get(strtoupper(trim($override->codigo))) : null);
             $cantidadErp = (float) $level['cantidad'];
             $tieneManual = $override && $override->cantidad_manual !== null;
 
-            $codigo = $producto['codigo'] ?? "#{$level['id_producto']}";
-            $nombre = $producto['nombre'] ?? '(producto no encontrado en el catálogo)';
+            $codigo = $producto['codigo'] ?? $override?->codigo ?? "#{$level['id_producto']}";
+            $nombre = $producto['nombre'] ?? $override?->nombre ?? $precios?->name ?? '(producto no encontrado en el catálogo)';
             // Descuentos/aumentos (PriceRule) solo para mostrar; products no se toca.
             [$precioFinal, $precioOriginal] = $adjuster->adjustAll([
                 'canal_tmc' => $precios?->price2,
@@ -196,7 +211,161 @@ class ExistenciasController extends Controller
             'almacenes' => $almacenes,
             'counts' => $counts,
             'lastSyncAt' => $stockLevels->lastSyncAt(),
+            'almacenesImportables' => Warehouse::whereNotNull('idERP_empresa')->whereNotNull('almacen_erp_id')->orderBy('id')->get(),
         ]);
+    }
+
+    /**
+     * Carga masiva desde Excel (hoja "Referencia | Disp") a un almacén (por defecto
+     * Schenker). Dos pasos: importar() lee y valida el archivo y guarda la vista
+     * previa en sesión; confirmarImportacion() aplica. Si la referencia está en el
+     * catálogo del ERP se guarda como ajuste manual de ese producto; si no, se crea
+     * una existencia solo acá (no se toca `products`). Las existencias "nuevas" que
+     * una importación anterior dejó en ese almacén y que ya no vienen en el archivo
+     * se quitan (el archivo es la foto del almacén); los ajustes de productos del
+     * ERP no se tocan porque no se distinguen de una edición manual.
+     */
+    public function importar(Request $request, StockService $stock): RedirectResponse
+    {
+        $request->validate([
+            'archivo' => ['required', 'file', 'mimes:xlsx'],
+            'almacen' => ['required', 'integer'],
+        ]);
+
+        $warehouse = Warehouse::whereNotNull('idERP_empresa')->whereNotNull('almacen_erp_id')->find($request->integer('almacen'));
+        abort_unless($warehouse, 422, 'Almacén inválido');
+
+        try {
+            [$filas, $omitidas] = $this->leerXlsx($request->file('archivo')->getRealPath());
+        } catch (\Throwable $e) {
+            return back()->withErrors(['archivo' => 'No se pudo leer el archivo: '.$e->getMessage()]);
+        }
+
+        if ($filas === []) {
+            return back()->withErrors(['archivo' => 'No hay filas válidas. Se esperan las columnas Referencia (A) y Disp (B).']);
+        }
+
+        $empresa = strtoupper($warehouse->idERP_empresa);
+        $almacen = (int) $warehouse->almacen_erp_id;
+        $catalogo = $this->catalogoPorCodigo($stock, $empresa);
+
+        $enCatalogo = array_filter($filas, fn ($f) => $catalogo->has(strtoupper($f[0])));
+        $nuevas = array_values(array_map(fn ($f) => $f[0], array_diff_key($filas, $enCatalogo)));
+        $seQuitan = ExistenciaOverride::where('empresa', $empresa)->where('id_almacen', $almacen)->whereNotNull('codigo')
+            ->pluck('codigo')->filter(fn ($c) => ! array_key_exists(strtoupper($c), $filas))->values()->all();
+
+        session(['import_excel' => [
+            'empresa' => $empresa,
+            'id_almacen' => $almacen,
+            'almacen' => $warehouse->alias ?: $warehouse->name,
+            'archivo' => $request->file('archivo')->getClientOriginalName(),
+            'filas' => array_values($filas),
+            'omitidas' => $omitidas,
+            'en_catalogo' => count($enCatalogo),
+            'nuevas' => $nuevas,
+            'se_quitan' => $seQuitan,
+        ]]);
+
+        return redirect()->route('existencias.importar.revisar');
+    }
+
+    public function revisarImportacion(Request $request): View|RedirectResponse
+    {
+        $preview = $request->session()->get('import_excel');
+
+        return $preview
+            ? view('existencias.importar-revisar', ['p' => $preview])
+            : redirect()->route('existencias')->withErrors(['archivo' => 'No hay una importación pendiente; subí el archivo de nuevo.']);
+    }
+
+    public function confirmarImportacion(Request $request, StockService $stock): RedirectResponse
+    {
+        $p = $request->session()->pull('import_excel');
+
+        if (! $p) {
+            return redirect()->route('existencias')->withErrors(['archivo' => 'La vista previa expiró; subí el archivo de nuevo.']);
+        }
+
+        $catalogo = $this->catalogoPorCodigo($stock, $p['empresa']);
+        $coinciden = $nuevas = 0;
+
+        DB::transaction(function () use ($p, $catalogo, &$coinciden, &$nuevas) {
+            foreach ($p['filas'] as [$ref, $cantidad]) {
+                $erp = $catalogo->get(strtoupper($ref));
+                $where = $erp
+                    ? ['empresa' => $p['empresa'], 'id_producto' => $erp['id'], 'id_almacen' => $p['id_almacen']]
+                    : ['empresa' => $p['empresa'], 'id_almacen' => $p['id_almacen'], 'codigo' => $ref];
+
+                $override = ExistenciaOverride::query()->firstOrNew($where);
+                if (! $override->exists && ! $erp) {
+                    // ponytail: id sintético por max(id); con imports concurrentes usar una secuencia.
+                    $override->id_producto = 1_000_000_000 + ExistenciaOverride::max('id') + 1;
+                    $override->nombre = '(nuevo, cargado desde Excel)';
+                }
+                $override->forceFill(['cantidad_manual' => $cantidad, 'updated_by' => Auth::id()])->save();
+                $erp ? $coinciden++ : $nuevas++;
+            }
+
+            if ($p['se_quitan']) {
+                ExistenciaOverride::where('empresa', $p['empresa'])->where('id_almacen', $p['id_almacen'])
+                    ->whereIn('codigo', $p['se_quitan'])->delete();
+            }
+        });
+
+        return redirect()->route('existencias', ['almacen' => $p['almacen']])
+            ->with('status', "Excel importado en {$p['almacen']}: {$coinciden} del catálogo, {$nuevas} nuevas solo en Existencias, ".count($p['se_quitan']).' quitadas.');
+    }
+
+    public function cancelarImportacion(Request $request): RedirectResponse
+    {
+        $request->session()->forget('import_excel');
+
+        return redirect()->route('existencias');
+    }
+
+    private function catalogoPorCodigo(StockService $stock, string $empresa)
+    {
+        return collect($stock->getProducts())
+            ->filter(fn (array $p) => ($p['empresa_codigo'] ?? 'TRAMEC') === $empresa)
+            ->keyBy(fn (array $p) => strtoupper(trim($p['codigo'])));
+    }
+
+    /**
+     * @return array{0: array<string, array{string, float}>, 1: int} filas únicas [referencia, cantidad]
+     *         (si se repite una referencia gana la última) y cuántas filas se omitieron por cantidad inválida.
+     */
+    private function leerXlsx(string $path): array
+    {
+        $zip = new \ZipArchive;
+        $zip->open($path);
+        $compartidas = [];
+        if ($xml = $zip->getFromName('xl/sharedStrings.xml')) {
+            foreach (simplexml_load_string($xml)->si as $si) {
+                $compartidas[] = html_entity_decode(strip_tags($si->asXML()));
+            }
+        }
+        $hoja = simplexml_load_string($zip->getFromName('xl/worksheets/sheet1.xml'));
+        $filas = [];
+        $omitidas = 0;
+        $n = 0;
+        foreach ($hoja->sheetData->row as $row) {
+            $vals = [];
+            foreach ($row->c as $c) {
+                $col = preg_replace('/\d+/', '', (string) $c['r']);
+                $vals[$col] = ((string) $c['t']) === 's' ? ($compartidas[(int) $c->v] ?? '') : (string) $c->v;
+            }
+            $ref = trim($vals['A'] ?? '');
+            if ($ref === '') {
+                continue;
+            }
+            if (is_numeric($vals['B'] ?? null)) {
+                $filas[strtoupper($ref)] = [$ref, (float) $vals['B']];
+            } elseif ($n++ > 0) { // la primera fila con texto es el encabezado
+                $omitidas++;
+            }
+        }
+
+        return [$filas, $omitidas];
     }
 
     public function edit(string $empresa, int $idProducto, int $idAlmacen, StockLevelService $stockLevels, StockService $stock): View
@@ -214,8 +383,8 @@ class ExistenciasController extends Controller
             'empresa' => $empresa,
             'idProducto' => $idProducto,
             'idAlmacen' => $idAlmacen,
-            'codigo' => $producto['codigo'] ?? "#{$idProducto}",
-            'nombre' => $producto['nombre'] ?? '(producto no encontrado en el catálogo)',
+            'codigo' => $producto['codigo'] ?? $override?->codigo ?? "#{$idProducto}",
+            'nombre' => $producto['nombre'] ?? $override?->nombre ?? '(producto no encontrado en el catálogo)',
             'cantidadErp' => $cantidadErp,
             'cantidadManual' => $override?->cantidad_manual,
             'oculto' => $override?->oculto ?? false,
@@ -271,12 +440,16 @@ class ExistenciasController extends Controller
         $producto = collect($stock->getProducts())
             ->first(fn (array $p) => ($p['empresa_codigo'] ?? 'TRAMEC') === $empresa && (int) $p['id'] === $idProducto);
 
+        $override = ExistenciaOverride::query()
+            ->where(['empresa' => $empresa, 'id_producto' => $idProducto, 'id_almacen' => $idAlmacen])
+            ->first();
+
         return view('existencias.confirm-baja', [
             'empresa' => $empresa,
             'idProducto' => $idProducto,
             'idAlmacen' => $idAlmacen,
-            'codigo' => $producto['codigo'] ?? "#{$idProducto}",
-            'nombre' => $producto['nombre'] ?? '(producto no encontrado en el catálogo)',
+            'codigo' => $producto['codigo'] ?? $override?->codigo ?? "#{$idProducto}",
+            'nombre' => $producto['nombre'] ?? $override?->nombre ?? '(producto no encontrado en el catálogo)',
         ]);
     }
 

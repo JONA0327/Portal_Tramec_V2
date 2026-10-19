@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\PriceRule;
+use App\Models\User;
 use App\Services\StockService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -26,12 +27,12 @@ class PriceRulesController extends Controller
             $r->id => $catalog->filter(fn (array $p) => $r->matches((string) ($p['codigo'] ?? ''), (string) ($p['nombre'] ?? '')))->count(),
         ]);
 
-        return view('precios.index', ['rules' => $rules, 'counts' => $counts, 'totalCatalog' => $catalog->count()]);
+        return view('precios.index', ['usuariosPorId' => User::whereIn('id', $rules->pluck('usuarios')->flatten()->filter()->unique())->get()->keyBy('id'), 'rules' => $rules, 'counts' => $counts, 'totalCatalog' => $catalog->count()]);
     }
 
     public function create(): View
     {
-        return view('precios.form', ['rule' => new PriceRule([
+        return view('precios.form', ['users' => User::orderBy('first_name')->get(['id', 'first_name', 'last_name', 'email']), 'rule' => new PriceRule([
             'tipo' => 'descuento',
             'campo' => 'ambos',
             'columnas' => array_keys(PriceRule::COLUMNAS),
@@ -48,7 +49,7 @@ class PriceRulesController extends Controller
 
     public function edit(PriceRule $priceRule): View
     {
-        return view('precios.form', ['rule' => $priceRule]);
+        return view('precios.form', ['users' => User::orderBy('first_name')->get(['id', 'first_name', 'last_name', 'email']), 'rule' => $priceRule]);
     }
 
     public function update(Request $request, PriceRule $priceRule): RedirectResponse
@@ -102,10 +103,13 @@ class PriceRulesController extends Controller
             'columnas.*' => [Rule::in(array_keys(PriceRule::COLUMNAS))],
             'niveles' => ['nullable', 'array'],
             'niveles.*' => [Rule::in(array_keys(PriceRule::NIVELES))],
+            'usuarios' => ['nullable', 'array'],
+            'usuarios.*' => ['integer', 'exists:users,id'],
         ]);
 
         $data['activo'] = $request->boolean('activo');
         $data['niveles'] = array_map('intval', $data['niveles'] ?? []) ?: null;
+        $data['usuarios'] = array_map('intval', $data['usuarios'] ?? []) ?: null;
 
         return $data;
     }

@@ -31,7 +31,7 @@ class PriceRule extends Model
         10 => 'EXCLUSIVO PIEZAS PLÁSTICAS',
     ];
 
-    protected $fillable = ['nombre', 'tipo', 'porcentaje', 'buscar', 'campo', 'columnas', 'niveles', 'activo'];
+    protected $fillable = ['nombre', 'tipo', 'porcentaje', 'buscar', 'campo', 'columnas', 'niveles', 'usuarios', 'activo'];
 
     protected function casts(): array
     {
@@ -39,6 +39,7 @@ class PriceRule extends Model
             'porcentaje' => 'float',
             'columnas' => 'array',
             'niveles' => 'array',
+            'usuarios' => 'array',
             'activo' => 'boolean',
         ];
     }
@@ -46,6 +47,13 @@ class PriceRule extends Model
     public function visibleToLevel(int|string|null $level): bool
     {
         return empty($this->niveles) || ($level !== null && in_array((int) $level, array_map('intval', $this->niveles), true));
+    }
+
+    /** Nivel Y usuario: si la regla lista usuarios, solo esos; si lista niveles, solo esos; ambos vacíos = todos. */
+    public function visibleTo(?User $user): bool
+    {
+        return $this->visibleToLevel($user?->level)
+            && (empty($this->usuarios) || ($user !== null && in_array($user->id, array_map('intval', $this->usuarios), true)));
     }
 
     public function matches(string $codigo, string $nombre): bool

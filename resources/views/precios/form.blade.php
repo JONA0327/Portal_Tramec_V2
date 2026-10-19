@@ -83,6 +83,18 @@
                                 <div class="form-text">Sin marcar ninguno = lo ven todos los niveles.</div>
                             </div>
 
+                            <div class="mb-3">
+                                <label class="form-label" for="usuarios">Usuarios específicos</label>
+                                <input type="search" id="usuarios-filtro" class="form-control form-control-sm mb-1" placeholder="Filtrar lista…" autocomplete="off">
+                                @php $selUsers = array_map('intval', old('usuarios', $rule->usuarios ?? [])); @endphp
+                                <select id="usuarios" name="usuarios[]" class="form-control" multiple size="7">
+                                    @foreach($users as $u)
+                                        <option value="{{ $u->id }}" @selected(in_array($u->id, $selUsers, true))>{{ $u->first_name }} {{ $u->last_name }} — {{ $u->email }}</option>
+                                    @endforeach
+                                </select>
+                                <div class="form-text">Ctrl/Cmd + clic para varios. Sin elegir ninguno = no se limita por usuario (solo por nivel).</div>
+                            </div>
+
                             <div class="form-check mb-4">
                                 <input class="form-check-input" type="checkbox" name="activo" id="activo" value="1" @checked(old('activo', $rule->activo))>
                                 <label class="form-check-label" for="activo">Regla activa</label>
@@ -115,6 +127,13 @@
             buscar.addEventListener('input', function () { clearTimeout(t); t = setTimeout(refresh, 300); });
             campo.addEventListener('change', refresh);
             refresh();
+
+            document.getElementById('usuarios-filtro').addEventListener('input', function () {
+                var q = this.value.toLowerCase();
+                Array.prototype.forEach.call(document.getElementById('usuarios').options, function (o) {
+                    o.hidden = q !== '' && !o.selected && o.text.toLowerCase().indexOf(q) === -1;
+                });
+            });
         })();
     </script>
 

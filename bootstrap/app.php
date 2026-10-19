@@ -15,6 +15,8 @@ return Application::configure(basePath: dirname(__DIR__))
         // servicio-stock (Python) llama a este webhook sin token CSRF; se autentica
         // con un secreto compartido en el header X-Webhook-Secret (ver
         // StockWebhookController), no con la sesión del navegador.
+        $middleware->web(append: [\App\Http\Middleware\EnsureUserIsActive::class]);
+
         $middleware->validateCsrfTokens(except: [
             'webhooks/stock-changed',
         ]);

@@ -15,6 +15,8 @@ class ExistenciaOverride extends Model
         'empresa',
         'id_producto',
         'id_almacen',
+        'codigo',
+        'nombre',
         'cantidad_manual',
         'cantidad_erp_al_editar',
         'oculto',

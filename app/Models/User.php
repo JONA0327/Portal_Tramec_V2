@@ -25,6 +25,7 @@ class User extends Authenticatable
         'email',
         'password',
         'active_flag',
+        'level',
     ];
 
     // users.level 0 = ADMINISTRADOR (mismo criterio que v1 para administración).

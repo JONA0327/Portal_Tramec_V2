@@ -5,6 +5,7 @@ use App\Http\Controllers\PriceRulesController;
 use App\Http\Controllers\ProductsController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\StockWebhookController;
+use App\Http\Controllers\UsersController;
 use App\Http\Controllers\WarehousesController;
 use Illuminate\Support\Facades\Route;
 
@@ -28,6 +29,16 @@ Route::middleware(['auth', 'verified', 'can:admin'])->prefix('precios')->name('p
     Route::put('/{priceRule}', [PriceRulesController::class, 'update'])->name('update');
     Route::patch('/{priceRule}/activar', [PriceRulesController::class, 'toggle'])->name('toggle');
     Route::delete('/{priceRule}', [PriceRulesController::class, 'destroy'])->name('destroy');
+});
+
+// Administración de usuarios (solo ADMINISTRADOR): alta, edición, activar/desactivar y nivel.
+Route::middleware(['auth', 'verified', 'can:admin'])->prefix('usuarios')->name('users.')->group(function () {
+    Route::get('/', [UsersController::class, 'index'])->name('index');
+    Route::get('/nuevo', [UsersController::class, 'create'])->name('create');
+    Route::post('/', [UsersController::class, 'store'])->name('store');
+    Route::get('/{user}/editar', [UsersController::class, 'edit'])->name('edit');
+    Route::put('/{user}', [UsersController::class, 'update'])->name('update');
+    Route::patch('/{user}', [UsersController::class, 'quick'])->name('quick');
 });
 
 // Sondeo del banner "servicio de existencias caído" (ver x-stock-status).
@@ -82,6 +93,14 @@ Route::middleware(['auth', 'verified'])->prefix('almacenes')->name('warehouses.'
 Route::get('/existencias', [ExistenciasController::class, 'index'])
     ->middleware(['auth', 'verified'])
     ->name('existencias');
+
+// Importación de Excel: solo ADMINISTRADOR, en dos pasos (importar -> revisar -> confirmar).
+Route::middleware(['auth', 'verified', 'can:admin'])->prefix('existencias/importar')->name('existencias.importar')->group(function () {
+    Route::post('/', [ExistenciasController::class, 'importar']);
+    Route::get('/revisar', [ExistenciasController::class, 'revisarImportacion'])->name('.revisar');
+    Route::post('/confirmar', [ExistenciasController::class, 'confirmarImportacion'])->name('.confirmar');
+    Route::post('/cancelar', [ExistenciasController::class, 'cancelarImportacion'])->name('.cancelar');
+});
 
 Route::middleware(['auth', 'verified'])->prefix('existencias')->name('existencias.')->group(function () {
     Route::get('/inconsistencias', [ExistenciasController::class, 'inconsistencias'])->name('inconsistencias');

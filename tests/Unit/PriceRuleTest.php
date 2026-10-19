@@ -3,6 +3,7 @@
 namespace Tests\Unit;
 
 use App\Models\PriceRule;
+use App\Models\User;
 use PHPUnit\Framework\TestCase;
 
 class PriceRuleTest extends TestCase
@@ -35,6 +36,18 @@ class PriceRuleTest extends TestCase
 
         $this->assertTrue($r->appliesTo('canal', 'A', 'B'));
         $this->assertFalse($r->appliesTo('oem', 'A', 'B'));
+    }
+
+    public function test_usuarios_especificos(): void
+    {
+        $r = $this->rule(['usuarios' => [7]]);
+        $a = (new User)->forceFill(['id' => 7, 'level' => 3]);
+        $b = (new User)->forceFill(['id' => 8, 'level' => 3]);
+
+        $this->assertTrue($r->visibleTo($a));
+        $this->assertFalse($r->visibleTo($b));
+        $this->assertFalse($r->visibleTo(null));
+        $this->assertTrue($this->rule([])->visibleTo($b));
     }
 
     public function test_niveles(): void

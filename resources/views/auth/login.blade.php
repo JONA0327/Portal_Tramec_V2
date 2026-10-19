@@ -18,6 +18,9 @@
         <h2><span class="primary">¡Bienvenido!</span></h2>
         <p>Introduzca Sus Datos Para Continuar</p>
 
+        @if(session('status'))
+            <div class="alert alert-success">{{ session('status') }}</div>
+        @endif
         <x-auth.errors />
 
         <div class="ad-auth-form">

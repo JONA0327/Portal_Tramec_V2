@@ -46,6 +46,20 @@
                             <div class="alert alert-success">{{ session('status') }}</div>
                         @endif
 
+                        @error('archivo')<div class="alert alert-danger">{{ $message }}</div>@enderror
+                        @can('admin')
+                            <form method="POST" action="{{ route('existencias.importar') }}" enctype="multipart/form-data" class="mb-3 d-flex flex-wrap align-items-center" style="gap: 8px;">
+                                @csrf
+                                <select name="almacen" class="form-control" style="max-width: 220px;" aria-label="Almacén a importar" required>
+                                    @foreach($almacenesImportables as $w)
+                                        <option value="{{ $w->id }}" @selected($w->name === 'DELTA Schenker')>{{ $w->alias ?: $w->name }} ({{ strtoupper($w->idERP_empresa) }})</option>
+                                    @endforeach
+                                </select>
+                                <input type="file" name="archivo" accept=".xlsx" class="form-control" style="max-width: 300px;" required>
+                                <button type="submit" class="btn btn-primary">Revisar Excel</button>
+                            </form>
+                        @endcan
+
                         <form method="GET" action="{{ route('existencias') }}" class="mb-3 d-flex flex-wrap" style="max-width: 900px; gap: 8px;">
                             <select name="empresa" class="form-control" style="max-width: 170px;" onchange="this.form.submit()">
                                 <option value="">Todas las empresas</option>

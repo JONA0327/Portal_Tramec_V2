@@ -1,0 +1,185 @@
+{{-- Catálogo unificado: cada fila del ERP (StockService, ambas empresas) cruzada
+     con la tabla local de precios `products` por idERP/idERP_empresa (ver
+     ProductsController). El nombre/código de una fila con precio local lo
+     mantiene al día el ERP automáticamente (App\Listeners\SyncLocalProductFromErp);
+     acá nunca se editan a mano. v1 (admin/products) además traía datatable con
+     import/export; eso todavía no se porta. --}}
+<x-layouts.dashboard>
+
+    <div class="container-fluid">
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center flex-wrap">
+                        <span>Productos</span>
+                        <small class="text-muted">
+                            @if($lastSyncAt)
+                                Catálogo actualizado: {{ \Illuminate\Support\Carbon::parse($lastSyncAt)->locale('es')->diffForHumans() }}
+                            @else
+                                Catálogo aún sin sincronizar
+                            @endif
+                            @if($counts['nuevo'] > 0)
+                                &nbsp;·&nbsp;<a href="{{ route('products', ['estado' => 'nuevo']) }}" class="text-info">🆕 {{ $counts['nuevo'] }} nuevos</a>
+                            @endif
+                            @if($counts['advertencia'] > 0)
+                                &nbsp;·&nbsp;<a href="{{ route('products', ['estado' => 'advertencia']) }}" class="text-warning">⚠ {{ $counts['advertencia'] }} sin emparejar</a>
+                            @endif
+                        </small>
+                    </div>
+
+                    <div class="card-body">
+                        <x-stock-status :last-sync="$lastSyncAt" />
+                        @if(session('status'))
+                            <div class="alert alert-success">{{ session('status') }}</div>
+                        @endif
+                        @if(session('error'))
+                            <div class="alert alert-danger">{{ session('error') }}</div>
+                        @endif
+
+                        <form method="GET" action="{{ route('products') }}" class="mb-3 d-flex flex-wrap" style="max-width: 780px; gap: 8px;">
+                            <select name="empresa" class="form-control" style="max-width: 170px;" onchange="this.form.submit()">
+                                <option value="">Todas las empresas</option>
+                                @foreach($empresas as $empresaOption)
+                                    <option value="{{ $empresaOption }}" @selected($empresa === $empresaOption)>{{ $empresaOption }}</option>
+                                @endforeach
+                            </select>
+                            <select name="estado" class="form-control" style="max-width: 190px;" onchange="this.form.submit()">
+                                <option value="" @selected($estado === '')>Todos los estados</option>
+                                <option value="normal" @selected($estado === 'normal')>Solo validados</option>
+                                <option value="nuevo" @selected($estado === 'nuevo')>🆕 Solo nuevos</option>
+                                <option value="advertencia" @selected($estado === 'advertencia')>⚠ Solo sin emparejar</option>
+                            </select>
+                            <input type="text" name="buscar" id="buscar-input" value="{{ $buscar }}" class="form-control"
+                                placeholder="Buscar por código o nombre..." style="max-width: 260px;">
+                        </form>
+
+                        <script>
+                            // Busca solo mientras escribís (con un pequeño debounce para no mandar un
+                            // request por cada tecla): el botón "Buscar" queda para los selects de
+                            // arriba, que ya se auto-envían con onchange.
+                            (function () {
+                                var input = document.getElementById('buscar-input');
+                                var timeoutId;
+                                input.addEventListener('input', function () {
+                                    clearTimeout(timeoutId);
+                                    timeoutId = setTimeout(function () {
+                                        input.form.submit();
+                                    }, 450);
+                                });
+                            })();
+                        </script>
+
+                        @if($products->isEmpty())
+                            <p class="mb-0">
+                                @if(!$lastSyncAt)
+                                    Todavía no se sincronizó el catálogo con el servicio de existencias.
+                                    Corré <code>php artisan stock:sync</code> (o esperá a que corra el programador de tareas).
+                                @else
+                                    No se encontraron productos con esos filtros.
+                                @endif
+                            </p>
+                        @else
+                            <div class="table-responsive">
+                                <table class="table table-bordered table-striped">
+                                    <thead>
+                                        <tr>
+                                            <th>ID</th>
+                                            <th>Código</th>
+                                            <th>Nombre</th>
+                                            <th>Empresa</th>
+                                            <th>Precio Lista</th>
+                                            <th>Acciones</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="products-tbody">
+                                        @foreach($products as $row)
+                                            {{-- TRAMEC y OMEC tienen cada una su propio id: el mismo número en las
+                                                 dos bases son productos distintos, por eso la clave para el update
+                                                 en vivo (Pusher) va con la empresa. Las filas "advertencia" no
+                                                 tienen empresa del ERP (no se encontró match), no reciben updates en vivo. --}}
+                                            <tr @if($row['erp_empresa']) data-product-id="{{ $row['erp_empresa'].':'.$row['erp_id'] }}" @endif>
+                                                <td class="col-id">
+                                                    @if($row['estado'] === 'nuevo')
+                                                        <span class="rounded-circle d-inline-block bg-info" style="width: 8px; height: 8px;" title="Existe en el ERP, todavía sin precio cargado"></span>
+                                                    @elseif($row['estado'] === 'advertencia')
+                                                        <span class="rounded-circle d-inline-block bg-warning" style="width: 8px; height: 8px;" title="No se encontró este producto en el catálogo actual del ERP"></span>
+                                                    @else
+                                                        <span class="rounded-circle d-inline-block bg-success" style="width: 8px; height: 8px;" title="Emparejado con el ERP"></span>
+                                                    @endif
+                                                    {{ $row['erp_id'] ?? '-' }}
+                                                </td>
+                                                <td class="col-codigo">{{ $row['codigo'] }}</td>
+                                                <td class="col-nombre">{{ $row['nombre'] }}</td>
+                                                <td>{{ $row['empresa'] ?? '-' }}</td>
+                                                <td @if($row['list_price_original'] !== null) title="Precio original: {{ number_format($row['list_price_original'], 2, '.', ',') }} (ajustado por regla)" style="box-shadow: inset 3px 0 0 #0dcaf0;" @endif>{{ $row['list_price'] !== null ? number_format($row['list_price'], 2, '.', ',') : '-' }}</td>
+                                                <td class="text-nowrap">
+                                                    @if($row['local_id'])
+                                                        <a href="{{ route('products.show', $row['local_id']) }}" class="btn btn-sm btn-secondary">Ver</a>
+                                                        <a href="{{ route('products.edit', $row['local_id']) }}" class="btn btn-sm btn-primary">Editar</a>
+                                                        <a href="{{ route('products.confirm-destroy', $row['local_id']) }}" class="btn btn-sm btn-danger">Borrar</a>
+                                                    @else
+                                                        {{-- Registro de un clic: crea el registro local ya vinculado al
+                                                             idERP (nombre/código los toma del ERP), sin pedir nada más.
+                                                             El precio se carga después con "Editar". --}}
+                                                        <form method="POST" action="{{ route('products.register') }}" class="d-inline">
+                                                            @csrf
+                                                            <input type="hidden" name="erp_empresa" value="{{ $row['erp_empresa'] }}">
+                                                            <input type="hidden" name="erp_id" value="{{ $row['erp_id'] }}">
+                                                            <button type="submit" class="btn btn-sm btn-info">Registrar</button>
+                                                        </form>
+                                                        {{-- Para servicios/personalizaciones de única ocasión que no son
+                                                             catálogo real (ver servicio-stock: /api/blacklist/{empresa}).
+                                                             Reversible: no borra nada, solo lo oculta. --}}
+                                                        <form method="POST" action="{{ route('products.block') }}" class="d-inline"
+                                                            onsubmit="return confirm('¿Bloquear este producto? Va a dejar de aparecer en el catálogo (podés desbloquearlo después desde servicio-stock).');">
+                                                            @csrf
+                                                            <input type="hidden" name="erp_empresa" value="{{ $row['erp_empresa'] }}">
+                                                            <input type="hidden" name="erp_id" value="{{ $row['erp_id'] }}">
+                                                            <button type="submit" class="btn btn-sm btn-outline-secondary">Bloquear</button>
+                                                        </form>
+                                                    @endif
+                                                </td>
+                                            </tr>
+                                        @endforeach
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <div class="mt-4">
+                                {{ $products->links('pagination::bootstrap-5') }}
+                            </div>
+                        @endif
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if(config('broadcasting.connections.pusher.key'))
+        {{-- Actualiza en vivo la fila de un producto si justo está visible en esta página,
+             cuando StockService detecta un cambio real (ver App\Events\ProductChanged). Si
+             el producto cambiado no está en la página actual, no hace nada (no reordena ni
+             pagina sola: eso sería más confuso que útil mientras alguien está mirando la tabla). --}}
+        <script src="https://cdn.jsdelivr.net/npm/pusher-js@8.4.0/dist/web/pusher.min.js"></script>
+        <script>
+            (function () {
+                var pusher = new Pusher(@json(config('broadcasting.connections.pusher.key')), {
+                    cluster: @json(config('broadcasting.connections.pusher.options.cluster')),
+                });
+
+                pusher.subscribe('stock-updates').bind('product.changed', function (product) {
+                    var key = (product.empresa_codigo || 'TRAMEC') + ':' + product.id;
+                    var row = document.querySelector('#products-tbody tr[data-product-id="' + key + '"]');
+                    if (!row) {
+                        return;
+                    }
+                    row.querySelector('.col-codigo').textContent = product.codigo ?? '-';
+                    row.querySelector('.col-nombre').textContent = product.nombre ?? '-';
+                    row.classList.add('table-warning');
+                    setTimeout(function () { row.classList.remove('table-warning'); }, 2000);
+                });
+            })();
+        </script>
+    @endif
+
+</x-layouts.dashboard>

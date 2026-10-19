@@ -31,7 +31,7 @@ class PriceRule extends Model
         10 => 'EXCLUSIVO PIEZAS PLÁSTICAS',
     ];
 
-    protected $fillable = ['nombre', 'tipo', 'porcentaje', 'buscar', 'campo', 'columnas', 'niveles', 'usuarios', 'activo'];
+    protected $fillable = ['nombre', 'tipo', 'porcentaje', 'buscar', 'campo', 'excluidos', 'columnas', 'niveles', 'usuarios', 'activo'];
 
     protected function casts(): array
     {
@@ -40,6 +40,7 @@ class PriceRule extends Model
             'columnas' => 'array',
             'niveles' => 'array',
             'usuarios' => 'array',
+            'excluidos' => 'array',
             'activo' => 'boolean',
         ];
     }
@@ -56,7 +57,15 @@ class PriceRule extends Model
             && (empty($this->usuarios) || ($user !== null && in_array($user->id, array_map('intval', $this->usuarios), true)));
     }
 
+    /** Coincide con el filtro de texto Y no está excluido a mano. */
     public function matches(string $codigo, string $nombre): bool
+    {
+        return $this->matchesFilter($codigo, $nombre)
+            && ! in_array(strtoupper(trim($codigo)), $this->excluidos ?? [], true);
+    }
+
+    /** Solo el filtro de texto (lo que lista la vista previa para elegir exclusiones). */
+    public function matchesFilter(string $codigo, string $nombre): bool
     {
         $terms = array_filter(array_map('trim', explode(',', (string) $this->buscar)));
 

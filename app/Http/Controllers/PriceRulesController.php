@@ -82,12 +82,14 @@ class PriceRulesController extends Controller
         ]);
 
         $matches = collect($stock->getProducts())
-            ->filter(fn (array $p) => $probe->matches((string) ($p['codigo'] ?? ''), (string) ($p['nombre'] ?? '')))
+            ->filter(fn (array $p) => $probe->matchesFilter((string) ($p['codigo'] ?? ''), (string) ($p['nombre'] ?? '')))
+            ->unique(fn (array $p) => strtoupper(trim($p['codigo'] ?? '')))
+            ->sortBy(fn (array $p) => strtoupper($p['codigo'] ?? ''))
             ->values();
 
         return response()->json([
             'total' => $matches->count(),
-            'items' => $matches->take(8)->map(fn (array $p) => ($p['codigo'] ?? '-').' — '.($p['nombre'] ?? ''))->all(),
+            'items' => $matches->take(3000)->map(fn (array $p) => ['c' => trim($p['codigo'] ?? '-'), 'n' => $p['nombre'] ?? ''])->all(),
         ]);
     }
 
@@ -103,6 +105,8 @@ class PriceRulesController extends Controller
             'columnas.*' => [Rule::in(array_keys(PriceRule::COLUMNAS))],
             'niveles' => ['nullable', 'array'],
             'niveles.*' => [Rule::in(array_keys(PriceRule::NIVELES))],
+            'excluidos' => ['nullable', 'array', 'max:5000'],
+            'excluidos.*' => ['string', 'max:100'],
             'usuarios' => ['nullable', 'array'],
             'usuarios.*' => ['integer', 'exists:users,id'],
         ]);
@@ -110,6 +114,7 @@ class PriceRulesController extends Controller
         $data['activo'] = $request->boolean('activo');
         $data['niveles'] = array_map('intval', $data['niveles'] ?? []) ?: null;
         $data['usuarios'] = array_map('intval', $data['usuarios'] ?? []) ?: null;
+        $data['excluidos'] = array_values(array_unique(array_map(fn ($c) => strtoupper(trim($c)), $data['excluidos'] ?? []))) ?: null;
 
         return $data;
     }

@@ -58,7 +58,17 @@
                                 </div>
                             </div>
 
-                            <div id="preview" class="alert alert-light border mb-3" aria-live="polite">Calculando coincidencias…</div>
+                            <div id="preview" class="border rounded p-2 mb-3" aria-live="polite">
+                                <div id="preview-resumen" class="mb-2">Calculando coincidencias…</div>
+                                <div id="preview-controles" class="d-flex flex-wrap align-items-center mb-2" style="gap: 8px;" hidden>
+                                    <input type="search" id="preview-filtro" class="form-control form-control-sm" style="max-width: 240px;" placeholder="Buscar en la lista…" autocomplete="off">
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" id="marcar-todos">Marcar todos</button>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" id="marcar-ninguno">Quitar todos</button>
+                                </div>
+                                <div id="preview-lista" class="small" style="max-height: 280px; overflow-y: auto;"></div>
+                                <div class="form-text">Desmarcá los productos a los que esta regla <strong>no</strong> debe aplicar.</div>
+                            </div>
+                            <div id="excluidos-inputs"></div>
 
                             <div class="mb-3">
                                 <label class="form-label d-block">Precios que se modifican</label>
@@ -111,18 +121,69 @@
     <script>
         (function () {
             var buscar = document.getElementById('buscar'), campo = document.getElementById('campo'),
-                box = document.getElementById('preview'), t;
+                resumen = document.getElementById('preview-resumen'), lista = document.getElementById('preview-lista'),
+                controles = document.getElementById('preview-controles'), filtro = document.getElementById('preview-filtro'),
+                form = buscar.form, t, items = [], loaded = false,
+                excluidos = new Set(@json(array_values(old('excluidos', $rule->excluidos ?? []))));
 
             function esc(s) { var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+            function updateResumen() {
+                var ex = items.filter(function (i) { return excluidos.has(i.c.toUpperCase()); }).length;
+                resumen.innerHTML = '<strong>' + (items.length - ex) + '</strong> de ' + items.length + ' producto(s) coinciden'
+                    + (ex ? ' <span class="text-muted">(' + ex + ' excluido(s))</span>' : '');
+            }
+
+            function render() {
+                var q = filtro.value.toLowerCase();
+                lista.innerHTML = items.map(function (i, n) {
+                    var id = 'p' + n, on = !excluidos.has(i.c.toUpperCase());
+                    return '<div class="form-check" data-t="' + esc((i.c + ' ' + i.n).toLowerCase()) + '"' + (q && (i.c + ' ' + i.n).toLowerCase().indexOf(q) < 0 ? ' hidden' : '') + '>'
+                        + '<input class="form-check-input" type="checkbox" id="' + id + '" data-c="' + esc(i.c.toUpperCase()) + '"' + (on ? ' checked' : '') + '>'
+                        + '<label class="form-check-label" for="' + id + '">' + esc(i.c) + (i.n && i.n !== i.c ? ' — ' + esc(i.n) : '') + '</label></div>';
+                }).join('');
+                controles.hidden = items.length === 0;
+                updateResumen();
+            }
 
             function refresh() {
                 var url = @json(route('price-rules.preview')) + '?buscar=' + encodeURIComponent(buscar.value) + '&campo=' + campo.value;
                 fetch(url, {headers: {Accept: 'application/json'}}).then(function (r) { return r.json(); }).then(function (d) {
-                    box.innerHTML = '<strong>' + d.total + '</strong> producto(s) coinciden'
-                        + (d.items.length ? ':<ul class="mb-0 small">' + d.items.map(function (i) { return '<li>' + esc(i) + '</li>'; }).join('')
-                        + (d.total > d.items.length ? '<li>…</li>' : '') + '</ul>' : '.');
-                }).catch(function () { box.textContent = 'No se pudo calcular la vista previa.'; });
+                    items = d.items; loaded = true;
+                    if (d.total > items.length) { resumen.textContent = 'Demasiados productos (' + d.total + '): afiná la búsqueda para poder elegirlos.'; }
+                    render();
+                    if (d.total > items.length) { resumen.textContent = 'Se muestran los primeros ' + items.length + ' de ' + d.total + ': afiná la búsqueda para ver el resto.'; }
+                }).catch(function () { resumen.textContent = 'No se pudo calcular la vista previa.'; });
             }
+
+            lista.addEventListener('change', function (e) {
+                var c = e.target.getAttribute('data-c');
+                if (c === null) { return; }
+                e.target.checked ? excluidos.delete(c) : excluidos.add(c);
+                updateResumen();
+            });
+            function marcarVisibles(on) {
+                Array.prototype.forEach.call(lista.querySelectorAll('.form-check:not([hidden]) input'), function (cb) {
+                    cb.checked = on; on ? excluidos.delete(cb.getAttribute('data-c')) : excluidos.add(cb.getAttribute('data-c'));
+                });
+                updateResumen();
+            }
+            document.getElementById('marcar-todos').addEventListener('click', function () { marcarVisibles(true); });
+            document.getElementById('marcar-ninguno').addEventListener('click', function () { marcarVisibles(false); });
+            filtro.addEventListener('input', function () {
+                var q = this.value.toLowerCase();
+                Array.prototype.forEach.call(lista.children, function (d) { d.hidden = q !== '' && d.getAttribute('data-t').indexOf(q) < 0; });
+            });
+
+            // Al enviar: cada producto desmarcado de la lista actual viaja como excluidos[].
+            form.addEventListener('submit', function () {
+                var box = document.getElementById('excluidos-inputs'), vigentes = new Set(items.map(function (i) { return i.c.toUpperCase(); }));
+                box.innerHTML = '';
+                excluidos.forEach(function (c) {
+                    if (loaded && !vigentes.has(c)) { return; } // ya no coincide con el filtro: se descarta
+                    var h = document.createElement('input'); h.type = 'hidden'; h.name = 'excluidos[]'; h.value = c; box.appendChild(h);
+                });
+            });
 
             buscar.addEventListener('input', function () { clearTimeout(t); t = setTimeout(refresh, 300); });
             campo.addEventListener('change', refresh);

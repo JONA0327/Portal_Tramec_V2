@@ -38,6 +38,15 @@ class PriceRuleTest extends TestCase
         $this->assertFalse($r->appliesTo('oem', 'A', 'B'));
     }
 
+    public function test_excluidos_quedan_fuera_aunque_coincidan(): void
+    {
+        $r = $this->rule(['buscar' => 'ah', 'excluidos' => ['AH04AD-5A']]);
+
+        $this->assertFalse($r->matches(' ah04ad-5a ', 'Variador'));
+        $this->assertTrue($r->matchesFilter('AH04AD-5A', 'Variador'));
+        $this->assertTrue($r->matches('AH04DA-5A', 'Variador'));
+    }
+
     public function test_usuarios_especificos(): void
     {
         $r = $this->rule(['usuarios' => [7]]);

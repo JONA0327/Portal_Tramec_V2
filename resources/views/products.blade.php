@@ -6,6 +6,13 @@
      import/export; eso todavía no se porta. --}}
 <x-layouts.dashboard>
 
+    @php
+        // Columnas de precio según el nivel del usuario (ver User::columnasPrecio()); acciones solo administrador.
+        $columnasPrecio = auth()->user()->columnasPrecio();
+        $esAdmin = auth()->user()->isAdmin();
+        $verId = in_array((int) auth()->user()->level, [0, 1, 7], true); // v1: el ID del ERP solo para los niveles internos
+    @endphp
+
     <div class="container-fluid">
         <div class="row">
             <div class="col-12">
@@ -18,11 +25,11 @@
                             @else
                                 Catálogo aún sin sincronizar
                             @endif
-                            @if($counts['nuevo'] > 0)
-                                &nbsp;·&nbsp;<a href="{{ route('products', ['modo' => 'avanzado', 'estado' => 'nuevo']) }}" class="text-info">🆕 {{ $counts['nuevo'] }} nuevos</a>
+                            @if(! $cliente && $counts['nuevo'] > 0)
+                                &nbsp;·&nbsp;<a href="{{ route('products', ['estado' => 'nuevo']) }}" class="text-info">🆕 {{ $counts['nuevo'] }} nuevos</a>
                             @endif
-                            @if($counts['advertencia'] > 0)
-                                &nbsp;·&nbsp;<a href="{{ route('products', ['modo' => 'avanzado', 'estado' => 'advertencia']) }}" class="text-warning">⚠ {{ $counts['advertencia'] }} sin emparejar</a>
+                            @if(! $cliente && $counts['advertencia'] > 0)
+                                &nbsp;·&nbsp;<a href="{{ route('products', ['estado' => 'advertencia']) }}" class="text-warning">⚠ {{ $counts['advertencia'] }} sin emparejar</a>
                             @endif
                         </small>
                     </div>
@@ -36,55 +43,37 @@
                             <div class="alert alert-danger">{{ session('error') }}</div>
                         @endif
 
-                        <div class="btn-group mb-3" role="group" aria-label="Tipo de filtro">
-                            <a href="{{ route('products', ['modo' => 'clasico']) }}" class="btn btn-sm {{ $modo === 'clasico' ? 'btn-primary' : 'btn-outline-secondary' }}">Filtro clásico</a>
-                            <a href="{{ route('products', ['modo' => 'avanzado']) }}" class="btn btn-sm {{ $modo === 'avanzado' ? 'btn-primary' : 'btn-outline-secondary' }}">Filtro avanzado</a>
-                        </div>
-
-                        @if($modo === 'clasico')
-                            {{-- Como en v1: una sola caja que busca coincidencias de texto en todo el
-                                 catálogo mientras se escribe. --}}
-                            <form method="GET" action="{{ route('products') }}" class="mb-3" style="max-width: 420px;">
-                                <input type="hidden" name="modo" value="clasico">
-                                <input type="text" name="buscar" id="buscar-input" value="{{ $buscar }}" class="form-control"
-                                    placeholder="Buscar en todos los productos..." autocomplete="off" autofocus>
-                            </form>
-
-                            <script>
-                                (function () {
-                                    var input = document.getElementById('buscar-input'), timeoutId;
-                                    input.setSelectionRange(input.value.length, input.value.length); // tras recargar, el cursor al final
-                                    input.addEventListener('input', function () {
-                                        clearTimeout(timeoutId);
-                                        timeoutId = setTimeout(function () { input.form.submit(); }, 400);
-                                    });
-                                })();
-                            </script>
-                        @else
                             {{-- Avanzado: empresa + estado + palabras (en cualquier orden); busca solo al
                                  pulsar "Buscar" o Enter. --}}
                             <form method="GET" action="{{ route('products') }}" class="mb-3 d-flex flex-wrap" style="max-width: 860px; gap: 8px;">
-                                <input type="hidden" name="modo" value="avanzado">
                                 <select name="empresa" class="form-control" style="max-width: 170px;" aria-label="Empresa">
                                     <option value="">Todas las empresas</option>
                                     @foreach($empresas as $empresaOption)
                                         <option value="{{ $empresaOption }}" @selected($empresa === $empresaOption)>{{ $empresaOption }}</option>
                                     @endforeach
                                 </select>
+                                @unless($cliente)
                                 <select name="estado" class="form-control" style="max-width: 190px;" aria-label="Estado">
                                     <option value="" @selected($estado === '')>Todos los estados</option>
                                     <option value="normal" @selected($estado === 'normal')>Solo validados</option>
                                     <option value="nuevo" @selected($estado === 'nuevo')>🆕 Solo nuevos</option>
                                     <option value="advertencia" @selected($estado === 'advertencia')>⚠ Solo sin emparejar</option>
                                 </select>
+                                @endunless
+                                <select name="clasificacion" class="form-control" style="max-width: 230px;" aria-label="Clasificación">
+                                    <option value="">Todas las clasificaciones</option>
+                                    @foreach($clasificaciones as $c)
+                                        <option value="{{ $c }}" @selected($clasificacion === $c)>{{ $c }}</option>
+                                    @endforeach
+                                    <option value="__sin" @selected($clasificacion === '__sin')>Sin clasificación</option>
+                                </select>
                                 <input type="text" name="buscar" id="buscar-input" value="{{ $buscar }}" class="form-control"
-                                    placeholder="Palabras del código o nombre..." style="max-width: 260px;" autocomplete="off">
+                                    placeholder="Palabras del código o descripción..." style="max-width: 260px;" autocomplete="off">
                                 <button type="submit" class="btn btn-primary">Buscar</button>
-                                @if($buscar !== '' || $empresa !== '' || $estado !== '')
-                                    <a href="{{ route('products', ['modo' => 'avanzado']) }}" class="btn btn-outline-secondary">Limpiar</a>
+                                @if($buscar !== '' || $empresa !== '' || $estado !== '' || $clasificacion !== '')
+                                    <a href="{{ route('products') }}" class="btn btn-outline-secondary">Limpiar</a>
                                 @endif
                             </form>
-                        @endif
 
                         @if($products->isEmpty())
                             <p class="mb-0">
@@ -100,12 +89,14 @@
                                 <table class="table table-bordered table-striped">
                                     <thead>
                                         <tr>
-                                            <th>ID</th>
+                                            @if($verId)<th>ID</th>@endif
                                             <th>Código</th>
-                                            <th>Nombre</th>
+                                            <th>Descripción</th>
                                             <th>Empresa</th>
-                                            <th>Precio Lista</th>
-                                            <th>Acciones</th>
+                                            @foreach($columnasPrecio as $label)
+                                                <th>{{ $label }}</th>
+                                            @endforeach
+                                            @if($esAdmin)<th>Acciones</th>@endif
                                         </tr>
                                     </thead>
                                     <tbody id="products-tbody">
@@ -115,6 +106,7 @@
                                                  en vivo (Pusher) va con la empresa. Las filas "advertencia" no
                                                  tienen empresa del ERP (no se encontró match), no reciben updates en vivo. --}}
                                             <tr @if($row['erp_empresa']) data-product-id="{{ $row['erp_empresa'].':'.$row['erp_id'] }}" @endif>
+                                                @if($verId)
                                                 <td class="col-id">
                                                     @if($row['estado'] === 'nuevo')
                                                         <span class="rounded-circle d-inline-block bg-info" style="width: 8px; height: 8px;" title="Existe en el ERP, todavía sin precio cargado"></span>
@@ -125,10 +117,17 @@
                                                     @endif
                                                     {{ $row['erp_id'] ?? '-' }}
                                                 </td>
+                                                @endif
                                                 <td class="col-codigo">{{ $row['codigo'] }}</td>
-                                                <td class="col-nombre">{{ $row['nombre'] }}</td>
+                                                <td class="col-nombre">{{ $row['descripcion'] }}</td>
                                                 <td>{{ $row['empresa'] ?? '-' }}</td>
-                                                <td @if($row['list_price_original'] !== null) title="Precio original: {{ number_format($row['list_price_original'], 2, '.', ',') }} (ajustado por regla)" style="box-shadow: inset 3px 0 0 #0dcaf0;" @endif>{{ $row['list_price'] !== null ? number_format($row['list_price'], 2, '.', ',') : '-' }}</td>
+                                                @foreach($columnasPrecio as $key => $label)
+                                                    <td class="text-nowrap {{ isset($row['originales'][$key]) ? 'precio-ajustado' : '' }}"
+                                                        @isset($row['originales'][$key]) title="Precio original: {{ number_format($row['originales'][$key], 2, '.', ',') }} (ajustado por regla)" style="box-shadow: inset 3px 0 0 #0dcaf0;" @endisset>
+                                                        {{ $row['precios'][$key] !== null ? number_format($row['precios'][$key], 2, '.', ',').' '.$row['moneda'] : '-' }}
+                                                    </td>
+                                                @endforeach
+                                                @if($esAdmin)
                                                 <td class="text-nowrap">
                                                     @if($row['local_id'])
                                                         <a href="{{ route('products.show', $row['local_id']) }}" class="btn btn-sm btn-secondary">Ver</a>
@@ -156,6 +155,7 @@
                                                         </form>
                                                     @endif
                                                 </td>
+                                                @endif
                                             </tr>
                                         @endforeach
                                     </tbody>

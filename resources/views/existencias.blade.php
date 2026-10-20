@@ -29,10 +29,10 @@
                                 &nbsp;·&nbsp;<a href="{{ route('existencias.inconsistencias') }}" class="text-warning">⚠ {{ $counts['conflictos'] }} inconsistencia(s) pendiente(s)</a>
                             @endif
                             @if($esAdmin && $counts['ocultos'] > 0)
-                                &nbsp;·&nbsp;<a href="{{ route('existencias', ['modo' => 'avanzado', 'estado' => 'ocultos']) }}" class="text-muted">{{ $counts['ocultos'] }} ocultos</a>
+                                &nbsp;·&nbsp;<a href="{{ route('existencias', ['estado' => 'ocultos']) }}" class="text-muted">{{ $counts['ocultos'] }} ocultos</a>
                             @endif
                             @if($esAdmin && $counts['bajas'] > 0)
-                                &nbsp;·&nbsp;<a href="{{ route('existencias', ['modo' => 'avanzado', 'estado' => 'bajas']) }}" class="text-muted">{{ $counts['bajas'] }} de baja</a>
+                                &nbsp;·&nbsp;<a href="{{ route('existencias', ['estado' => 'bajas']) }}" class="text-muted">{{ $counts['bajas'] }} de baja</a>
                             @endif
                         </small>
                     </div>
@@ -52,34 +52,9 @@
                             </form>
                         @endcan
 
-                        <div class="btn-group mb-3" role="group" aria-label="Tipo de filtro">
-                            <a href="{{ route('existencias', ['modo' => 'clasico']) }}" class="btn btn-sm {{ $modo === 'clasico' ? 'btn-primary' : 'btn-outline-secondary' }}">Filtro clásico</a>
-                            <a href="{{ route('existencias', ['modo' => 'avanzado']) }}" class="btn btn-sm {{ $modo === 'avanzado' ? 'btn-primary' : 'btn-outline-secondary' }}">Filtro avanzado</a>
-                        </div>
-
-                        @if($modo === 'clasico')
-                            {{-- Como en v1: una sola caja que busca coincidencias de texto mientras se escribe. --}}
-                            <form method="GET" action="{{ route('existencias') }}" class="mb-3" style="max-width: 420px;">
-                                <input type="hidden" name="modo" value="clasico">
-                                <input type="text" name="buscar" id="buscar-input" value="{{ $buscar }}" class="form-control"
-                                    placeholder="Buscar en todas las existencias..." autocomplete="off" autofocus>
-                            </form>
-
-                            <script>
-                                (function () {
-                                    var input = document.getElementById('buscar-input'), timeoutId;
-                                    input.setSelectionRange(input.value.length, input.value.length); // tras recargar, el cursor al final
-                                    input.addEventListener('input', function () {
-                                        clearTimeout(timeoutId);
-                                        timeoutId = setTimeout(function () { input.form.submit(); }, 400);
-                                    });
-                                })();
-                            </script>
-                        @else
                             {{-- Avanzado: empresa + almacén + estado + palabras (en cualquier orden); busca solo al
                                  pulsar "Buscar" o Enter. "Agrupar por modelo" junta los almacenes de cada modelo en un renglón. --}}
                             <form method="GET" action="{{ route('existencias') }}" class="mb-3 d-flex flex-wrap align-items-center" style="max-width: 1000px; gap: 8px;">
-                                <input type="hidden" name="modo" value="avanzado">
                                 <select name="empresa" class="form-control" style="max-width: 170px;" aria-label="Empresa">
                                     <option value="">Todas las empresas</option>
                                     @foreach($empresas as $empresaOption)
@@ -100,6 +75,13 @@
                                     <option value="bajas" @selected($estado === 'bajas')>Dados de baja</option>
                                     @endif
                                 </select>
+                                <select name="clasificacion" class="form-control" style="max-width: 230px;" aria-label="Clasificación">
+                                    <option value="">Todas las clasificaciones</option>
+                                    @foreach($clasificaciones as $c)
+                                        <option value="{{ $c }}" @selected($clasificacion === $c)>{{ $c }}</option>
+                                    @endforeach
+                                    <option value="__sin" @selected($clasificacion === '__sin')>Sin clasificación</option>
+                                </select>
                                 <input type="text" name="buscar" id="buscar-input" value="{{ $buscar }}" class="form-control"
                                     placeholder="Palabras del código o nombre..." style="max-width: 260px;" autocomplete="off">
                                 <label class="d-flex align-items-center mb-0" style="gap: 6px; cursor: pointer; user-select: none;">
@@ -107,11 +89,10 @@
                                     Agrupar por modelo
                                 </label>
                                 <button type="submit" class="btn btn-primary">Buscar</button>
-                                @if($buscar !== '' || $empresa !== '' || $almacen !== '' || $estado !== 'con_existencia' || $agrupar)
-                                    <a href="{{ route('existencias', ['modo' => 'avanzado']) }}" class="btn btn-outline-secondary">Limpiar</a>
+                                @if($buscar !== '' || $empresa !== '' || $almacen !== '' || $clasificacion !== '' || $estado !== 'con_existencia' || $agrupar)
+                                    <a href="{{ route('existencias') }}" class="btn btn-outline-secondary">Limpiar</a>
                                 @endif
                             </form>
-                        @endif
 
                         @if($levels->isEmpty())
                             <p class="mb-0">

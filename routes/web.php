@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\ExistenciasController;
+use App\Http\Controllers\ManualesController;
 use App\Http\Controllers\PriceRulesController;
 use App\Http\Controllers\ProductsController;
 use App\Http\Controllers\ProfileController;
@@ -30,6 +31,11 @@ Route::middleware(['auth', 'verified', 'can:admin'])->prefix('precios')->name('p
     Route::patch('/{priceRule}/activar', [PriceRulesController::class, 'toggle'])->name('toggle');
     Route::delete('/{priceRule}', [PriceRulesController::class, 'destroy'])->name('destroy');
 });
+
+// Manuales y catálogos (enlaces a tramec.mx/descargas).
+Route::get('/manuales', [ManualesController::class, 'index'])
+    ->middleware(['auth', 'verified', 'nivel:manuales'])
+    ->name('manuales');
 
 // Administración de usuarios (solo ADMINISTRADOR): alta, edición, activar/desactivar y nivel.
 Route::middleware(['auth', 'verified', 'can:admin'])->prefix('usuarios')->name('users.')->group(function () {
@@ -63,7 +69,7 @@ Route::get('/productos', [ProductsController::class, 'index'])
 // del ERP se cruza con la tabla local `products` por idERP/idERP_empresa (ver
 // ProductErpMatcher). El nombre/código nunca se edita acá: lo mantiene al día
 // el ERP (ver App\Listeners\SyncLocalProductFromErp).
-Route::middleware(['auth', 'verified', 'nivel:productos'])->prefix('productos')->name('products.')->group(function () {
+Route::middleware(['auth', 'verified', 'nivel:productos', 'can:admin'])->prefix('productos')->name('products.')->group(function () {
     Route::post('/registrar', [ProductsController::class, 'register'])->name('register');
     Route::post('/bloquear', [ProductsController::class, 'block'])->name('block');
     Route::get('/{product}', [ProductsController::class, 'show'])->name('show');
@@ -124,7 +130,6 @@ Route::post('/webhooks/stock-changed', [StockWebhookController::class, 'handle']
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
-    Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 });
 
 require __DIR__.'/auth.php';

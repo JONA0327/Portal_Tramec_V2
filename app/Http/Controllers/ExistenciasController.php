@@ -53,15 +53,9 @@ class ExistenciasController extends Controller
         $empresa = trim((string) $request->query('empresa', ''));
         $almacen = trim((string) $request->query('almacen', ''));
         $estado = $request->query('estado', 'con_existencia');
-        // clasico (v1): una caja que filtra por coincidencia de texto. avanzado: empresa + almacén +
-        // estado + palabras, solo al pulsar Buscar / Enter, y opcionalmente agrupado por modelo.
-        $modo = $request->query('modo') === 'avanzado' ? 'avanzado' : 'clasico';
-        $agrupar = $modo === 'avanzado' && $request->boolean('agrupar');
-
-        if ($modo === 'clasico') {
-            $empresa = $almacen = '';
-            $estado = 'con_existencia';
-        }
+        // Clasificación = campo "Tipo de producto" (products.kind_of_product), como en v1.
+        $clasificacion = trim((string) $request->query('clasificacion', ''));
+        $agrupar = $request->boolean('agrupar'); // un renglón por modelo, con sus almacenes aparte
 
         if (! $request->user()->isAdmin() && in_array($estado, ['ocultos', 'bajas'], true)) {
             $estado = 'con_existencia'; // ocultos y bajas son de administración
@@ -163,15 +157,11 @@ class ExistenciasController extends Controller
                 'oculto' => $override?->oculto ?? false,
                 'de_baja' => $override?->de_baja ?? false,
                 'moneda' => $precios?->base_currency ?: 'MXN',
+                'clasificacion' => $precios?->kind_of_product ?: null,
                 ...$precioFinal,
                 'originales' => $precioOriginal,
             ];
         });
-
-        // Nivel 10 (EXCLUSIVO PIEZAS PLÁSTICAS): en v1 solo veía el almacén MDG.
-        if ((int) $request->user()->level === 10) {
-            $rows = $rows->where('almacen', 'MDG')->values();
-        }
 
         // Conteos sobre el total sin filtrar, para que los avisos del header no
         // cambien según lo que se esté buscando en ese momento.
@@ -207,12 +197,13 @@ class ExistenciasController extends Controller
             $filtered = $filtered->filter(fn (array $r) => $r['almacen'] === $almacen);
         }
 
+        if ($clasificacion !== '') {
+            $filtered = $filtered->filter(fn (array $r) => $clasificacion === '__sin' ? $r['clasificacion'] === null : $r['clasificacion'] === $clasificacion);
+        }
+
         if ($buscar !== '') {
-            $filtered = $filtered->filter(function (array $r) use ($buscar, $modo) {
-                return $modo === 'avanzado'
-                    ? Search::all($buscar, $r['codigo'], $r['descripcion'])
-                    : Str::contains(implode(' ', [$r['codigo'], $r['descripcion'], $r['empresa'], $r['almacen']]), $buscar, true);
-            });
+            // Palabras sueltas, en cualquier orden ("10hp 215t" encuentra "MOTOR 10HP 4P 215T").
+            $filtered = $filtered->filter(fn (array $r) => Search::all($buscar, $r['codigo'], $r['descripcion']));
         }
 
         $filtered = $filtered->sortBy([['codigo', 'asc'], ['almacen', 'asc']])->values();
@@ -244,12 +235,13 @@ class ExistenciasController extends Controller
 
         return view('existencias', [
             'levels' => $paginated,
-            'modo' => $modo,
             'agrupar' => $agrupar,
             'buscar' => $buscar,
             'empresa' => $empresa,
             'almacen' => $almacen,
             'estado' => $estado,
+            'clasificacion' => $clasificacion,
+            'clasificaciones' => Product::whereNotNull('kind_of_product')->where('kind_of_product', '!=', '')->distinct()->orderBy('kind_of_product')->pluck('kind_of_product'),
             'empresas' => $empresas,
             'almacenes' => $almacenes,
             'counts' => $counts,

@@ -32,18 +32,25 @@ class ProductsController extends Controller
 {
     private const PER_PAGE = 10;
 
+    /** @return array<string, mixed> los 5 precios de un producto local, con las mismas claves que PriceRule::COLUMNAS. */
+    private function preciosDe(?Product $p): array
+    {
+        return [
+            'canal_tmc' => $p?->price2,
+            'canal' => $p?->price3,
+            'oem' => $p?->price4,
+            'usuario_final' => $p?->price5,
+            'precio_lista' => $p?->list_price,
+        ];
+    }
+
     public function index(Request $request, StockService $stock, PriceAdjuster $adjuster): View
     {
         $buscar = trim((string) $request->query('buscar', ''));
         $empresa = trim((string) $request->query('empresa', ''));
         $estado = trim((string) $request->query('estado', ''));
-        // clasico (v1): una caja que filtra por coincidencia de texto sobre todo el catálogo.
-        // avanzado: empresa + estado + búsqueda por palabras, solo al pulsar Buscar / Enter.
-        $modo = $request->query('modo') === 'avanzado' ? 'avanzado' : 'clasico';
-
-        if ($modo === 'clasico') {
-            $empresa = $estado = '';
-        }
+        // Clasificación = campo "Tipo de producto" (products.kind_of_product), como en v1.
+        $clasificacion = trim((string) $request->query('clasificacion', ''));
 
         // Filtra productos "de única ocasión" (servicios/personalizaciones que se dan
         // de alta al facturar, sin ser catálogo real) — ver isOneOffErpItem(). No se
@@ -66,17 +73,20 @@ class ProductsController extends Controller
         $rows = $catalog->map(function (array $item) use ($localByKey, $adjuster) {
             $empresaCodigo = $item['empresa_codigo'] ?? 'TRAMEC';
             $local = $localByKey->get("{$empresaCodigo}:{$item['id']}");
-            [$precio, $original] = $adjuster->adjustAll(['list_price' => $local?->list_price], $item['codigo'] ?? '-', $item['nombre'] ?? '-');
+            [$precios, $originales] = $adjuster->adjustAll($this->preciosDe($local), $item['codigo'] ?? '-', $item['nombre'] ?? '-');
 
             return [
                 'erp_id' => $item['id'] ?? null,
                 'erp_empresa' => $empresaCodigo,
                 'codigo' => $item['codigo'] ?? '-',
                 'nombre' => $item['nombre'] ?? '-',
+                'descripcion' => $local?->description_short ?: ($item['nombre'] ?? '-'),
                 'empresa' => $empresaCodigo,
                 'local_id' => $local?->id,
-                'list_price' => $precio['list_price'],
-                'list_price_original' => $original['list_price'] ?? null,
+                'clasificacion' => $local?->kind_of_product ?: null,
+                'precios' => $precios,
+                'originales' => $originales,
+                'moneda' => $local?->base_currency ?: 'MXN',
                 'estado' => $local ? 'normal' : 'nuevo',
             ];
         });
@@ -87,22 +97,33 @@ class ProductsController extends Controller
             })
             ->get()
             ->map(function (Product $p) use ($adjuster) {
-                [$precio, $original] = $adjuster->adjustAll(['list_price' => $p->list_price], (string) $p->name, (string) $p->name2);
+                [$precios, $originales] = $adjuster->adjustAll($this->preciosDe($p), (string) $p->name, (string) $p->name2);
 
                 return [
                 'erp_id' => null,
                 'erp_empresa' => null,
                 'codigo' => $p->name,
                 'nombre' => $p->name2,
+                'descripcion' => $p->description_short ?: $p->name2,
                 'empresa' => null,
                 'local_id' => $p->id,
-                'list_price' => $precio['list_price'],
-                'list_price_original' => $original['list_price'] ?? null,
+                'clasificacion' => $p->kind_of_product ?: null,
+                'precios' => $precios,
+                'originales' => $originales,
+                'moneda' => $p->base_currency ?: 'MXN',
                 'estado' => 'advertencia',
                 ];
             });
 
         $allRows = $rows->concat($unmatchedLocal);
+
+        // Niveles de cliente (2 a 6): solo productos ya registrados (con precio), sin contadores ni
+        // filtro de estado: nuevos / sin emparejar son avisos internos de catálogo.
+        $cliente = $request->user()->esCliente();
+        if ($cliente) {
+            $allRows = $allRows->where('estado', 'normal');
+            $estado = '';
+        }
 
         // Conteos sobre el total sin filtrar, para que los avisos no cambien según
         // lo que se esté buscando en ese momento.
@@ -121,12 +142,13 @@ class ProductsController extends Controller
             $filtered = $filtered->filter(fn (array $r) => $r['estado'] === $estado);
         }
 
+        if ($clasificacion !== '') {
+            $filtered = $filtered->filter(fn (array $r) => $clasificacion === '__sin' ? $r['clasificacion'] === null : $r['clasificacion'] === $clasificacion);
+        }
+
         if ($buscar !== '') {
-            $filtered = $filtered->filter(function (array $r) use ($buscar, $modo) {
-                return $modo === 'avanzado'
-                    ? Search::all($buscar, $r['codigo'], $r['nombre'])
-                    : Str::contains(implode(' ', [$r['erp_id'], $r['codigo'], $r['nombre'], $r['empresa']]), $buscar, true);
-            });
+            // Palabras sueltas, en cualquier orden ("10hp 215t" encuentra "MOTOR 10HP 4P 215T").
+            $filtered = $filtered->filter(fn (array $r) => Search::all($buscar, $r['codigo'], $r['descripcion']));
         }
 
         $filtered = $filtered->values();
@@ -142,12 +164,14 @@ class ProductsController extends Controller
 
         return view('products', [
             'products' => $paginated,
-            'modo' => $modo,
             'buscar' => $buscar,
             'empresa' => $empresa,
             'estado' => $estado,
+            'clasificacion' => $clasificacion,
+            'clasificaciones' => Product::whereNotNull('kind_of_product')->where('kind_of_product', '!=', '')->distinct()->orderBy('kind_of_product')->pluck('kind_of_product'),
             'empresas' => $empresas,
             'counts' => $counts,
+            'cliente' => $cliente,
             'lastSyncAt' => $stock->lastSyncAt(),
         ]);
     }

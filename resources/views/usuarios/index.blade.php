@@ -64,7 +64,7 @@
                                                         @csrf
                                                         @method('PATCH')
                                                         <select name="level" class="form-control form-control-sm" style="min-width: 220px;" onchange="this.form.submit()" aria-label="Nivel de {{ $u->first_name }}">
-                                                            @if($u->level === null)<option value="" selected>— Sin nivel —</option>@endif
+                                                            @if($u->level === null || ! array_key_exists((int) $u->level, \App\Models\PriceRule::NIVELES))<option value="" selected>— Sin nivel{{ $u->level !== null ? ' (nivel '.$u->level.' retirado)' : '' }} —</option>@endif
                                                             @foreach(\App\Models\PriceRule::NIVELES as $n => $label)
                                                                 <option value="{{ $n }}" @selected($u->level !== null && (int) $u->level === $n)>{{ $label }}</option>
                                                             @endforeach

@@ -30,7 +30,7 @@ class User extends Authenticatable
 
     /**
      * Qué secciones ve cada nivel (menú de v1): Inicio todos menos 10; Productos 0-9;
-     * Almacenes 0, 1, 7; Existencias 0-10. Sin nivel asignado no ve ninguna.
+     * Almacenes 0, 1, 7; Existencias 0-9; Manuales 0-9. Sin nivel asignado no ve ninguna.
      */
     public function puedeVer(string $modulo): bool
     {
@@ -42,7 +42,8 @@ class User extends Authenticatable
             'inicio' => [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
             'productos' => [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
             'almacenes' => [0, 1, 7],
-            'existencias' => [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+            'existencias' => [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+            'manuales' => [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
             default => [],
         };
 
@@ -52,7 +53,7 @@ class User extends Authenticatable
     /**
      * Columnas de precio de Existencias que ve este nivel, como en v1: los niveles de venta ven
      * solo "Su Costo" (la columna de su canal); los internos ven varios canales. Todos los
-     * niveles con acceso ven el Precio de Lista, salvo el 10 (solo almacén MDG, sin precios).
+     * niveles con acceso ven el Precio de Lista, (los niveles sin acceso no ven ninguna).
      * ponytail: v1 además aplicaba factores por modelo (×0.645 / ×0.6593 en CIPSA y canal
      * entrante) y una columna "Su Costo" duplicada en el nivel 9; no se portaron.
      */
@@ -71,6 +72,12 @@ class User extends Authenticatable
             5 => ['usuario_final' => 'Su Costo'] + $lista,
             default => [],
         };
+    }
+
+    /** Clientes finales de canal (2 a 6): ven solo su costo y el precio de lista, sin avisos internos de catálogo. */
+    public function esCliente(): bool
+    {
+        return $this->level !== null && in_array((int) $this->level, [2, 3, 4, 5, 6], true);
     }
 
     /** v1: solo estos niveles tenían el botón de copiar precio ($canCopyPrice). */

@@ -28,7 +28,6 @@ class PriceRule extends Model
         7 => 'EQUIPO TRAMEC ESPECIAL',
         8 => 'EQUIPO TRAMEC VENTAS 2',
         9 => 'CANAL ENTRANTE (BM, IIPSA, STM)',
-        10 => 'EXCLUSIVO PIEZAS PLÁSTICAS',
     ];
 
     protected $fillable = ['nombre', 'tipo', 'porcentaje', 'buscar', 'campo', 'incluidos', 'columnas', 'niveles', 'usuarios', 'activo'];

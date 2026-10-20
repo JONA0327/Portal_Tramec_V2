@@ -135,6 +135,10 @@ class ExistenciasController extends Controller
 
             $codigo = $producto['codigo'] ?? $override?->codigo ?? "#{$level['id_producto']}";
             $nombre = $producto['nombre'] ?? $override?->nombre ?? $precios?->name ?? '(producto no encontrado en el catálogo)';
+            // Texto provisional que usaban las importaciones anteriores de Excel; ya se guarda "Sin descripción".
+            if ($nombre === '(nuevo, cargado desde Excel)') {
+                $nombre = 'Sin descripción';
+            }
             // Descuentos/aumentos (PriceRule) solo para mostrar; products no se toca.
             [$precioFinal, $precioOriginal] = $adjuster->adjustAll([
                 'canal_tmc' => $precios?->price2,
@@ -250,13 +254,11 @@ class ExistenciasController extends Controller
             'almacenes' => $almacenes,
             'counts' => $counts,
             'lastSyncAt' => $stockLevels->lastSyncAt(),
-            'almacenesImportables' => Warehouse::whereNotNull('idERP_empresa')->whereNotNull('almacen_erp_id')->orderBy('id')->get(),
         ]);
     }
 
     /**
-     * Carga masiva desde Excel (hoja "Referencia | Disp") a un almacén (por defecto
-     * Schenker). Dos pasos: importar() lee y valida el archivo y guarda la vista
+     * Carga masiva desde Excel (hoja "Referencia | Disp") del almacén Schenker. Dos pasos: importar() lee y valida el archivo y guarda la vista
      * previa en sesión; confirmarImportacion() aplica. Si la referencia está en el
      * catálogo del ERP se guarda como ajuste manual de ese producto; si no, se crea
      * una existencia solo acá (no se toca `products`). Las existencias "nuevas" que
@@ -266,13 +268,12 @@ class ExistenciasController extends Controller
      */
     public function importar(Request $request, StockService $stock): RedirectResponse
     {
-        $request->validate([
-            'archivo' => ['required', 'file', 'mimes:xlsx'],
-            'almacen' => ['required', 'integer'],
-        ]);
+        $request->validate(['archivo' => ['required', 'file', 'mimes:xlsx']]);
 
-        $warehouse = Warehouse::whereNotNull('idERP_empresa')->whereNotNull('almacen_erp_id')->find($request->integer('almacen'));
-        abort_unless($warehouse, 422, 'Almacén inválido');
+        // El Excel es solo del almacén DELTA Schenker (TRAMEC, almacén 0 de CONTPAQi): todo lo demás
+        // viene del ERP, por eso no hay selector de almacén.
+        $warehouse = Warehouse::where('idERP_empresa', 'tramec')->where('almacen_erp_id', 0)->first();
+        abort_unless($warehouse, 422, 'No existe el almacén Schenker (TRAMEC, almacén 0).');
 
         try {
             [$filas, $omitidas] = $this->leerXlsx($request->file('archivo')->getRealPath());
@@ -293,6 +294,17 @@ class ExistenciasController extends Controller
         $seQuitan = ExistenciaOverride::where('empresa', $empresa)->where('id_almacen', $almacen)->whereNotNull('codigo')
             ->pluck('codigo')->filter(fn ($c) => ! array_key_exists(strtoupper($c), $filas))->values()->all();
 
+        // Productos del catálogo que ya tenían cantidad en Schenker y ya no vienen en el archivo: el
+        // archivo es la foto completa del almacén, así que se quitan.
+        $idsEnArchivo = $catalogo->filter(fn ($p, $code) => array_key_exists($code, $filas))->pluck('id')->all();
+        $codigoPorId = $catalogo->mapWithKeys(fn ($p) => [$p['id'] => $p['codigo']]);
+        $seQuitanErp = ExistenciaOverride::where('empresa', $empresa)->where('id_almacen', $almacen)
+            ->whereNull('codigo')->whereNotNull('cantidad_manual')->where('id_producto', '<', 1_000_000_000)
+            ->whereNotIn('id_producto', $idsEnArchivo)
+            ->pluck('id_producto')
+            ->map(fn ($id) => ['id' => (int) $id, 'codigo' => $codigoPorId->get($id, "#{$id}")])
+            ->values()->all();
+
         session(['import_excel' => [
             'empresa' => $empresa,
             'id_almacen' => $almacen,
@@ -303,6 +315,7 @@ class ExistenciasController extends Controller
             'en_catalogo' => count($enCatalogo),
             'nuevas' => $nuevas,
             'se_quitan' => $seQuitan,
+            'se_quitan_erp' => $seQuitanErp,
         ]]);
 
         return redirect()->route('existencias.importar.revisar');
@@ -339,7 +352,7 @@ class ExistenciasController extends Controller
                 if (! $override->exists && ! $erp) {
                     // ponytail: id sintético por max(id); con imports concurrentes usar una secuencia.
                     $override->id_producto = 1_000_000_000 + ExistenciaOverride::max('id') + 1;
-                    $override->nombre = '(nuevo, cargado desde Excel)';
+                    $override->nombre = 'Sin descripción';
                 }
                 $override->forceFill(['cantidad_manual' => $cantidad, 'updated_by' => Auth::id()])->save();
                 $erp ? $coinciden++ : $nuevas++;
@@ -349,10 +362,20 @@ class ExistenciasController extends Controller
                 ExistenciaOverride::where('empresa', $p['empresa'])->where('id_almacen', $p['id_almacen'])
                     ->whereIn('codigo', $p['se_quitan'])->delete();
             }
+
+            // Productos del catálogo que ya no vienen: se borra el ajuste, salvo que esté oculto o dado
+            // de baja (eso se conserva y solo se le quita la cantidad).
+            foreach ($p['se_quitan_erp'] as ['id' => $id]) {
+                $o = ExistenciaOverride::where(['empresa' => $p['empresa'], 'id_almacen' => $p['id_almacen'], 'id_producto' => $id])->first();
+                if (! $o) {
+                    continue;
+                }
+                ($o->oculto || $o->de_baja) ? $o->forceFill(['cantidad_manual' => null])->save() : $o->delete();
+            }
         });
 
         return redirect()->route('existencias', ['almacen' => $p['almacen']])
-            ->with('status', "Excel importado en {$p['almacen']}: {$coinciden} del catálogo, {$nuevas} nuevas solo en Existencias, ".count($p['se_quitan']).' quitadas.');
+            ->with('status', "Excel importado en {$p['almacen']}: {$coinciden} del catálogo, {$nuevas} nuevas solo en Existencias, ".(count($p['se_quitan']) + count($p['se_quitan_erp'])).' quitadas.');
     }
 
     public function cancelarImportacion(Request $request): RedirectResponse

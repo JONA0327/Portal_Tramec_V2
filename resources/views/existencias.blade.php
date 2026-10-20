@@ -47,13 +47,8 @@
                         @can('admin')
                             <form method="POST" action="{{ route('existencias.importar') }}" enctype="multipart/form-data" class="mb-3 d-flex flex-wrap align-items-center" style="gap: 8px;">
                                 @csrf
-                                <select name="almacen" class="form-control" style="max-width: 220px;" aria-label="Almacén a importar" required>
-                                    @foreach($almacenesImportables as $w)
-                                        <option value="{{ $w->id }}" @selected($w->name === 'DELTA Schenker')>{{ $w->alias ?: $w->name }} ({{ strtoupper($w->idERP_empresa) }})</option>
-                                    @endforeach
-                                </select>
                                 <input type="file" name="archivo" accept=".xlsx" class="form-control" style="max-width: 300px;" required>
-                                <button type="submit" class="btn btn-primary">Revisar Excel</button>
+                                <button type="submit" class="btn btn-primary">Revisar Excel de Schenker</button>
                             </form>
                         @endcan
 

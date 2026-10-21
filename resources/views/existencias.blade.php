@@ -44,30 +44,23 @@
                         @endif
 
                         @error('archivo')<div class="alert alert-danger">{{ $message }}</div>@enderror
-                        @can('admin')
-                            <form method="POST" action="{{ route('existencias.importar') }}" enctype="multipart/form-data" class="mb-3 d-flex flex-wrap align-items-center" style="gap: 8px;">
-                                @csrf
-                                <input type="file" name="archivo" accept=".xlsx" class="form-control" style="max-width: 300px;" required>
-                                <button type="submit" class="btn btn-primary">Revisar Excel de Schenker</button>
-                            </form>
-                        @endcan
 
                             {{-- Avanzado: empresa + almacén + estado + palabras (en cualquier orden); busca solo al
                                  pulsar "Buscar" o Enter. "Agrupar por modelo" junta los almacenes de cada modelo en un renglón. --}}
-                            <form method="GET" action="{{ route('existencias') }}" class="mb-3 d-flex flex-wrap align-items-center" style="max-width: 1000px; gap: 8px;">
-                                <select name="empresa" class="form-control" style="max-width: 170px;" aria-label="Empresa">
+                            <form method="GET" action="{{ route('existencias') }}" class="filtros-barra">
+                                <select name="empresa" class="form-control" aria-label="Empresa">
                                     <option value="">Todas las empresas</option>
                                     @foreach($empresas as $empresaOption)
                                         <option value="{{ $empresaOption }}" @selected($empresa === $empresaOption)>{{ $empresaOption }}</option>
                                     @endforeach
                                 </select>
-                                <select name="almacen" class="form-control" style="max-width: 200px;" aria-label="Almacén">
+                                <select name="almacen" class="form-control" aria-label="Almacén">
                                     <option value="">Todos los almacenes</option>
                                     @foreach($almacenes as $almacenOption)
                                         <option value="{{ $almacenOption }}" @selected($almacen === $almacenOption)>{{ $almacenOption }}</option>
                                     @endforeach
                                 </select>
-                                <select name="estado" class="form-control" style="max-width: 200px;" aria-label="Estado">
+                                <select name="estado" class="form-control" aria-label="Estado">
                                     <option value="con_existencia" @selected($estado === 'con_existencia')>Solo con existencia</option>
                                     <option value="todos" @selected($estado === 'todos')>Todos (incluye en 0)</option>
                                     @if($esAdmin)
@@ -75,24 +68,58 @@
                                     <option value="bajas" @selected($estado === 'bajas')>Dados de baja</option>
                                     @endif
                                 </select>
-                                <select name="clasificacion" class="form-control" style="max-width: 230px;" aria-label="Clasificación">
+                                <select name="clasificacion" class="form-control" aria-label="Clasificación">
                                     <option value="">Todas las clasificaciones</option>
                                     @foreach($clasificaciones as $c)
                                         <option value="{{ $c }}" @selected($clasificacion === $c)>{{ $c }}</option>
                                     @endforeach
                                     <option value="__sin" @selected($clasificacion === '__sin')>Sin clasificación</option>
                                 </select>
-                                <input type="text" name="buscar" id="buscar-input" value="{{ $buscar }}" class="form-control"
-                                    placeholder="Palabras del código o nombre..." style="max-width: 260px;" autocomplete="off">
-                                <label class="d-flex align-items-center mb-0" style="gap: 6px; cursor: pointer; user-select: none;">
-                                    <input type="checkbox" name="agrupar" value="1" @checked($agrupar) style="width: 16px; height: 16px; min-width: 16px; padding: 0; margin: 0;">
+                                <input type="text" name="buscar" id="buscar-input" value="{{ $buscar }}" class="form-control filtro-buscar"
+                                    placeholder="Palabras del código o descripción..." autocomplete="off">
+                                <label class="filtro-check">
+                                    <input type="checkbox" name="agrupar" value="1" @checked($agrupar)>
                                     Agrupar por modelo
                                 </label>
                                 <button type="submit" class="btn btn-primary">Buscar</button>
                                 @if($buscar !== '' || $empresa !== '' || $almacen !== '' || $clasificacion !== '' || $estado !== 'con_existencia' || $agrupar)
                                     <a href="{{ route('existencias') }}" class="btn btn-outline-secondary">Limpiar</a>
                                 @endif
+                                @can('admin')
+                                    <button type="button" class="btn btn-outline-primary ml-auto" data-toggle="modal" data-target="#modalExcel">Cargar Excel</button>
+                                @endcan
                             </form>
+
+                            @can('admin')
+                            {{-- Carga del Excel de Schenker en un modal (Bootstrap 4 del tema): al elegir el archivo
+                                 se pasa a la pantalla de revisión antes de aplicar nada. --}}
+                            <div class="modal fade" id="modalExcel" tabindex="-1" role="dialog" aria-labelledby="modalExcelTitulo" aria-hidden="true">
+                                <div class="modal-dialog modal-dialog-centered" role="document">
+                                    <div class="modal-content">
+                                        <form method="POST" action="{{ route('existencias.importar') }}" enctype="multipart/form-data">
+                                            @csrf
+                                            <div class="modal-header">
+                                                <h5 class="modal-title" id="modalExcelTitulo">Cargar Excel de Schenker</h5>
+                                                <button type="button" class="close" data-dismiss="modal" aria-label="Cerrar"><span aria-hidden="true">&times;</span></button>
+                                            </div>
+                                            <div class="modal-body">
+                                                <p class="text-muted mb-3">
+                                                    Archivo <strong>.xlsx</strong> con las columnas <strong>Referencia</strong> y <strong>Disp</strong>.
+                                                    Es la foto completa del almacén DELTA Schenker: lo que ya no venga en el archivo se quita.
+                                                    Antes de aplicar nada verás un resumen para confirmar.
+                                                </p>
+                                                <label class="form-label" for="archivo-excel">Archivo Excel</label>
+                                                <input type="file" id="archivo-excel" name="archivo" accept=".xlsx" class="form-control" required>
+                                            </div>
+                                            <div class="modal-footer">
+                                                <button type="button" class="btn btn-outline-secondary" data-dismiss="modal">Cancelar</button>
+                                                <button type="submit" class="btn btn-primary">Revisar archivo</button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                            @endcan
 
                         @if($levels->isEmpty())
                             <p class="mb-0">
@@ -263,6 +290,14 @@
         }
         .copy-price-toast.show { opacity: 1; transform: translateY(-8px); }
     </style>
+    @can('admin')
+    <script>
+        // El modal se mueve al <body> para que no lo recorten los contenedores de la tarjeta (jQuery carga más abajo).
+        document.addEventListener('DOMContentLoaded', function () {
+            $('#modalExcel').appendTo('body');
+        });
+    </script>
+    @endcan
     <script>
         {{-- jQuery se carga más abajo en el layout (después de $slot), por eso se
              espera a DOMContentLoaded en vez de llamar $(...) directo acá arriba. --}}

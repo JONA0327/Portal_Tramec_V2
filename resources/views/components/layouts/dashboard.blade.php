@@ -357,6 +357,21 @@
                 display: none;
             }
         }
+    
+        /* Barra de filtros (Productos y Existencias): una fila en pantallas anchas, se acomoda
+           sola en dos o más en laptops chicas y apila todo a ancho completo en teléfono. */
+        .filtros-barra { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 1.25rem; }
+        .filtros-barra .form-control { flex: 1 1 170px; min-width: 150px; max-width: none; width: auto; }
+        .filtros-barra .filtro-buscar { flex: 2 1 260px; }
+        .filtros-barra .filtro-check { display: flex; align-items: center; gap: 8px; margin: 0; cursor: pointer; user-select: none; white-space: nowrap; }
+        .filtros-barra .filtro-check input { flex: none; width: 16px; height: 16px; min-width: 16px; padding: 0; margin: 0; }
+        .filtros-barra .btn { flex: 0 0 auto; white-space: nowrap; }
+        .form-control[type="file"] { height: auto; padding: 9px 10px; } /* el tema fija input{height:40px} */
+        @media (max-width: 575px) {
+            .filtros-barra .form-control, .filtros-barra .filtro-buscar { flex: 1 1 100%; }
+            .filtros-barra .filtro-check { flex: 1 1 100%; }
+            .filtros-barra .btn { flex: 1 1 auto; }
+        }
     </style>
 
 </head>

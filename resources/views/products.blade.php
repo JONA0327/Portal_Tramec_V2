@@ -45,30 +45,30 @@
 
                             {{-- Avanzado: empresa + estado + palabras (en cualquier orden); busca solo al
                                  pulsar "Buscar" o Enter. --}}
-                            <form method="GET" action="{{ route('products') }}" class="mb-3 d-flex flex-wrap" style="max-width: 860px; gap: 8px;">
-                                <select name="empresa" class="form-control" style="max-width: 170px;" aria-label="Empresa">
+                            <form method="GET" action="{{ route('products') }}" class="filtros-barra">
+                                <select name="empresa" class="form-control" aria-label="Empresa">
                                     <option value="">Todas las empresas</option>
                                     @foreach($empresas as $empresaOption)
                                         <option value="{{ $empresaOption }}" @selected($empresa === $empresaOption)>{{ $empresaOption }}</option>
                                     @endforeach
                                 </select>
                                 @unless($cliente)
-                                <select name="estado" class="form-control" style="max-width: 190px;" aria-label="Estado">
+                                <select name="estado" class="form-control" aria-label="Estado">
                                     <option value="" @selected($estado === '')>Todos los estados</option>
                                     <option value="normal" @selected($estado === 'normal')>Solo validados</option>
                                     <option value="nuevo" @selected($estado === 'nuevo')>🆕 Solo nuevos</option>
                                     <option value="advertencia" @selected($estado === 'advertencia')>⚠ Solo sin emparejar</option>
                                 </select>
                                 @endunless
-                                <select name="clasificacion" class="form-control" style="max-width: 230px;" aria-label="Clasificación">
+                                <select name="clasificacion" class="form-control" aria-label="Clasificación">
                                     <option value="">Todas las clasificaciones</option>
                                     @foreach($clasificaciones as $c)
                                         <option value="{{ $c }}" @selected($clasificacion === $c)>{{ $c }}</option>
                                     @endforeach
                                     <option value="__sin" @selected($clasificacion === '__sin')>Sin clasificación</option>
                                 </select>
-                                <input type="text" name="buscar" id="buscar-input" value="{{ $buscar }}" class="form-control"
-                                    placeholder="Palabras del código o descripción..." style="max-width: 260px;" autocomplete="off">
+                                <input type="text" name="buscar" id="buscar-input" value="{{ $buscar }}" class="form-control filtro-buscar"
+                                    placeholder="Palabras del código o descripción..." autocomplete="off">
                                 <button type="submit" class="btn btn-primary">Buscar</button>
                                 @if($buscar !== '' || $empresa !== '' || $estado !== '' || $clasificacion !== '')
                                     <a href="{{ route('products') }}" class="btn btn-outline-secondary">Limpiar</a>

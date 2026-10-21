@@ -86,7 +86,7 @@
                                     <a href="{{ route('existencias') }}" class="btn btn-outline-secondary">Limpiar</a>
                                 @endif
                                 @can('admin')
-                                    <button type="button" class="btn btn-outline-primary ml-auto" data-toggle="modal" data-target="#modalExcel">Cargar Excel</button>
+                                    <button type="button" class="btn btn-secondary ml-auto" data-toggle="modal" data-target="#modalExcel">Cargar Excel</button>
                                 @endcan
                             </form>
 

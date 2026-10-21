@@ -15,9 +15,10 @@ return Application::configure(basePath: dirname(__DIR__))
         // servicio-stock (Python) llama a este webhook sin token CSRF; se autentica
         // con un secreto compartido en el header X-Webhook-Secret (ver
         // StockWebhookController), no con la sesión del navegador.
-        // El portal corre detrás de un túnel de Cloudflare (cloudflared -> localhost): se confía en sus
-        // cabeceras X-Forwarded-* para que Laravel sepa que el sitio es https (cookie de sesión, URLs).
-        $middleware->trustProxies(at: '*');
+        // En producción nginx termina TLS directamente (puerto 443 abierto a internet, sin
+        // proxy real delante), así que no hay que confiar en X-Forwarded-* de nadie: si se
+        // confiara con '*', cualquiera podría falsificar X-Forwarded-For y saltarse el límite
+        // de intentos de login por IP (ver LoginRequest::throttleKey()).
 
         $middleware->alias([
             'nivel' => \App\Http\Middleware\EnsureLevelCanAccess::class,

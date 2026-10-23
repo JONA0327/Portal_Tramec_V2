@@ -61,12 +61,6 @@
                                         <option value="{{ $almacenOption }}" @selected($almacen === $almacenOption)>{{ $almacenOption }}</option>
                                     @endforeach
                                 </select>
-                                <select name="estado" class="form-control" aria-label="Estado">
-                                    <option value="con_existencia" @selected($estado === 'con_existencia')>Con existencia</option>
-                                    @if($esAdmin)
-                                    <option value="ocultos" @selected($estado === 'ocultos')>Ocultos</option>
-                                    @endif
-                                </select>
                                 <select name="clasificacion" class="form-control" aria-label="Clasificación">
                                     <option value="">Todas las clasificaciones</option>
                                     @foreach($clasificaciones as $c)
@@ -80,6 +74,13 @@
                                     <input type="checkbox" name="agrupar" value="1" @checked($agrupar)>
                                     Agrupar por modelo
                                 </label>
+                                @if($esAdmin)
+                                    {{-- Solo el administrador (nivel 0): las filas ocultas a mano se ven aparte, con esta casilla. --}}
+                                    <label class="filtro-check">
+                                        <input type="checkbox" name="estado" value="ocultos" @checked($estado === 'ocultos')>
+                                        Ver ocultos
+                                    </label>
+                                @endif
                                 <button type="submit" class="btn btn-primary">Buscar</button>
                                 @if($buscar !== '' || $empresa !== '' || $almacen !== '' || $clasificacion !== '' || $estado !== 'con_existencia' || $agrupar)
                                     <a href="{{ route('existencias') }}" class="btn btn-outline-secondary">Limpiar</a>

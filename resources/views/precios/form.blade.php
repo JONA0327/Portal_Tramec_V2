@@ -237,7 +237,6 @@
                     l.hidden = q.trim() !== '' && !coincide(l.getAttribute('data-t'), q);
                 });
             });
-            });
         })();
     </script>
 

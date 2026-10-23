@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Product;
+use App\Models\ProductoBaja;
 use App\Services\BlacklistService;
 use App\Services\PriceAdjuster;
 use App\Services\StockService;
@@ -56,7 +57,9 @@ class ProductsController extends Controller
         // de alta al facturar, sin ser catálogo real) — ver isOneOffErpItem(). No se
         // borra nada de la base ni de servicio-stock, solo se dejan de mostrar acá.
         $catalog = collect($stock->getProducts())
-            ->reject(fn (array $item) => $this->isOneOffErpItem($item));
+            ->reject(fn (array $item) => $this->isOneOffErpItem($item))
+            // Dados de baja desde el portal: se ignoran aunque CONTPAQi los siga devolviendo (no salen como "nuevos").
+            ->reject(fn (array $item) => ProductoBaja::esBaja($item['empresa_codigo'] ?? 'TRAMEC', $item['codigo'] ?? ''));
 
         $empresas = $catalog
             ->map(fn (array $item) => $item['empresa_codigo'] ?? 'TRAMEC')
@@ -96,6 +99,7 @@ class ProductsController extends Controller
                 $q->whereNull('idERP')->orWhere('idERP', '')->orWhereNull('idERP_empresa');
             })
             ->get()
+            ->reject(fn (Product $p) => ProductoBaja::esBaja(null, $p->name))
             ->map(function (Product $p) use ($adjuster) {
                 [$precios, $originales] = $adjuster->adjustAll($this->preciosDe($p), (string) $p->name, (string) $p->name2);
 
@@ -190,7 +194,10 @@ class ProductsController extends Controller
             'erp_id' => ['required', 'integer'],
         ]);
 
-        $erpProduct = $this->findErpProduct($stock, strtolower($data['erp_empresa']), $data['erp_id']);
+        // empresa_codigo del ERP y products.idERP_empresa van en MAYÚSCULAS (TRAMEC / OMEC); solo la API
+        // de blacklist usa minúsculas (ver block()). Antes se buscaba en minúsculas y nunca coincidía: 404.
+        $empresa = strtoupper($data['erp_empresa']);
+        $erpProduct = $this->findErpProduct($stock, $empresa, $data['erp_id']);
         abort_unless($erpProduct, 404, 'Ese producto ya no existe en el catálogo del ERP.');
 
         // idERP/idERP_empresa no están en $fillable a propósito (ver Product::$fillable),
@@ -200,7 +207,7 @@ class ProductsController extends Controller
             'name' => $erpProduct['codigo'],
             'name2' => preg_replace('/[^A-Za-z0-9]/', '', $erpProduct['codigo']),
             'idERP' => $erpProduct['id'],
-            'idERP_empresa' => strtolower($data['erp_empresa']),
+            'idERP_empresa' => $empresa,
         ]);
         $product->save();
 
@@ -254,28 +261,6 @@ class ProductsController extends Controller
         return redirect()->route('products.show', $product)->with('status', 'Producto actualizado.');
     }
 
-    public function confirmDestroy(Product $product): View
-    {
-        return view('products.confirm-destroy', ['product' => $product]);
-    }
-
-    public function destroy(Request $request, Product $product): RedirectResponse
-    {
-        // Seguridad extra pedida explícitamente: no alcanza con un botón, hay que
-        // escribir la palabra "confirmar" tal cual para que el borrado se ejecute.
-        $request->validate(['confirmacion' => ['required', 'string']]);
-
-        if (strtolower(trim($request->input('confirmacion'))) !== 'confirmar') {
-            return back()
-                ->withErrors(['confirmacion' => 'Tenés que escribir la palabra "confirmar" para borrar el producto.'])
-                ->withInput();
-        }
-
-        $product->delete();
-
-        return redirect()->route('products')->with('status', 'Producto eliminado.');
-    }
-
     /**
      * Detecta productos "de única ocasión": se dan de alta en CONTPAQi al momento
      * de facturar algo puntual (un servicio, una personalización) y no representan
@@ -307,7 +292,7 @@ class ProductsController extends Controller
     private function findErpProduct(StockService $stock, string $empresa, mixed $id): ?array
     {
         return collect($stock->getProducts())
-            ->first(fn (array $item) => ($item['empresa_codigo'] ?? 'TRAMEC') === $empresa
+            ->first(fn (array $item) => strtoupper($item['empresa_codigo'] ?? 'TRAMEC') === strtoupper($empresa)
                 && (string) ($item['id'] ?? '') === (string) $id);
     }
 

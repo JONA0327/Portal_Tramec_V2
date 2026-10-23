@@ -25,15 +25,16 @@
                             @else
                                 Todavía sin sincronizar
                             @endif
-                            @if($esAdmin && $counts['conflictos'] > 0)
-                                &nbsp;·&nbsp;<a href="{{ route('existencias.inconsistencias') }}" class="text-warning">⚠ {{ $counts['conflictos'] }} inconsistencia(s) pendiente(s)</a>
-                            @endif
                             @if($esAdmin && $counts['ocultos'] > 0)
                                 &nbsp;·&nbsp;<a href="{{ route('existencias', ['estado' => 'ocultos']) }}" class="text-muted">{{ $counts['ocultos'] }} ocultos</a>
                             @endif
                             @if($esAdmin && $counts['bajas'] > 0)
-                                &nbsp;·&nbsp;<a href="{{ route('existencias', ['estado' => 'bajas']) }}" class="text-muted">{{ $counts['bajas'] }} de baja</a>
+                                &nbsp;·&nbsp;<a href="{{ route('bajas') }}" class="text-muted">{{ $counts['bajas'] }} en bajas</a>
                             @endif
+                            &nbsp;·&nbsp;<span id="live-status" class="text-muted"
+                                @if(! config('broadcasting.connections.pusher.key')) title="Falta configurar PUSHER_APP_KEY / PUSHER_APP_CLUSTER y BROADCAST_CONNECTION=pusher en el .env del servidor" @endif>
+                                {{ config('broadcasting.connections.pusher.key') ? '○ Conectando…' : '○ Tiempo real desactivado' }}
+                            </span>
                         </small>
                     </div>
 
@@ -61,11 +62,9 @@
                                     @endforeach
                                 </select>
                                 <select name="estado" class="form-control" aria-label="Estado">
-                                    <option value="con_existencia" @selected($estado === 'con_existencia')>Solo con existencia</option>
-                                    <option value="todos" @selected($estado === 'todos')>Todos (incluye en 0)</option>
+                                    <option value="con_existencia" @selected($estado === 'con_existencia')>Con existencia</option>
                                     @if($esAdmin)
                                     <option value="ocultos" @selected($estado === 'ocultos')>Ocultos</option>
-                                    <option value="bajas" @selected($estado === 'bajas')>Dados de baja</option>
                                     @endif
                                 </select>
                                 <select name="clasificacion" class="form-control" aria-label="Clasificación">
@@ -172,12 +171,9 @@
                                                     @foreach($row['almacenes'] as $alm)
                                                         <{{ $esAdmin ? 'a' : 'span' }} @if($esAdmin) href="{{ route('existencias.edit', [$alm['empresa'], $alm['id_producto'], $alm['id_almacen']]) }}" @endif
                                                             class="d-inline-block border rounded px-2 py-1 mr-1 mb-1 text-nowrap text-decoration-none {{ $alm['de_baja'] ? 'text-muted' : '' }}"
-                                                            @if($esAdmin) title="Editar existencia en {{ $alm['almacen'] }}" @endif>
+                                                            @if($esAdmin) title="Opciones de {{ $alm['almacen'] }}" @endif>
                                                             {{ $alm['almacen'] }}:
                                                             <strong>{{ rtrim(rtrim(number_format($alm['cantidad'], 2, '.', ','), '0'), '.') ?: '0' }}</strong>
-                                                            @if($esAdmin && $alm['tiene_manual'])<span title="Cantidad editada a mano">✎</span>@endif
-                                                            @if($esAdmin && $alm['conflicto'])<span class="text-warning" title="El ERP cambió después de la edición manual">⚠</span>@endif
-                                                            @if($alm['de_baja'])<span class="badge bg-secondary">Baja</span>@endif
                                                         </{{ $esAdmin ? 'a' : 'span' }}>
                                                     @endforeach
                                                 </td>
@@ -212,15 +208,6 @@
                                                 <td class="col-almacen">{{ $row['almacen'] }}</td>
                                                 <td class="col-cantidad">
                                                     {{ rtrim(rtrim(number_format($row['cantidad'], 2, '.', ','), '0'), '.') ?: '0' }}
-                                                    @if($row['tiene_manual'])
-                                                        <span title="Cantidad editada a mano, no es la del ERP">✎</span>
-                                                    @endif
-                                                    @if($row['conflicto'])
-                                                        <span class="text-warning" title="El ERP cambió después de esta edición manual -- ver Inconsistencias">⚠</span>
-                                                    @endif
-                                                    @if($row['de_baja'])
-                                                        <span class="badge bg-secondary">Baja</span>
-                                                    @endif
                                                 </td>
                                                 @foreach($columnasPrecio as $key => $label)
                                                     <td class="text-nowrap {{ $row[$key] !== null && $puedeCopiar ? 'copy-price-cell' : '' }} {{ isset($row['originales'][$key]) ? 'precio-ajustado' : '' }}"
@@ -243,8 +230,8 @@
                                                     @php
                                                         $rowUrlBase = route('existencias.edit', [$row['empresa'], $row['id_producto'], $row['id_almacen']]);
                                                     @endphp
-                                                    <a href="{{ $rowUrlBase }}" class="btn btn-sm btn-primary">Editar</a>
-                                                    @if(!$row['de_baja'])
+                                                    <a href="{{ $rowUrlBase }}" class="btn btn-sm btn-primary">Opciones</a>
+                                                    @if(true)
                                                         <a href="{{ route('existencias.confirm-baja', [$row['empresa'], $row['id_producto'], $row['id_almacen']]) }}" class="btn btn-sm btn-danger">Dar de baja</a>
                                                     @endif
                                                 </td>
@@ -341,9 +328,22 @@
         <script src="https://cdn.jsdelivr.net/npm/pusher-js@8.4.0/dist/web/pusher.min.js"></script>
         <script>
             (function () {
+                var ocultarSinExistencia = @json($estado === 'con_existencia'); // en la lista de ocultos sí se ven en cero
+                var estado = document.getElementById('live-status');
+                function enVivo(ok, texto) {
+                    if (estado) { estado.textContent = (ok ? '● ' : '○ ') + texto; estado.className = ok ? 'text-success' : 'text-muted'; }
+                }
+                if (typeof Pusher === 'undefined') {
+                    enVivo(false, 'Sin tiempo real (no cargó pusher-js)');
+                    return;
+                }
                 var pusher = new Pusher(@json(config('broadcasting.connections.pusher.key')), {
                     cluster: @json(config('broadcasting.connections.pusher.options.cluster')),
                 });
+                pusher.connection.bind('state_change', function (s) {
+                    enVivo(s.current === 'connected', s.current === 'connected' ? 'En vivo' : (s.current === 'connecting' ? 'Conectando…' : 'Sin conexión en vivo'));
+                });
+                pusher.connection.bind('error', function () { enVivo(false, 'Sin conexión en vivo'); });
 
                 pusher.subscribe('existencias-updates').bind('existencia.changed', function (level) {
                     var key = (level.empresa_codigo || 'TRAMEC') + ':' + level.id_producto + ':' + level.id_almacen;
@@ -352,6 +352,12 @@
                         return;
                     }
                     var cantidad = Number(level.cantidad ?? 0);
+                    // Sin existencia deja de mostrarse (reaparece al recargar cuando vuelva a haber).
+                    if (cantidad <= 0 && ocultarSinExistencia) {
+                        row.classList.add('table-warning');
+                        setTimeout(function () { row.remove(); }, 1200);
+                        return;
+                    }
                     row.querySelector('.col-cantidad').textContent = cantidad % 1 === 0 ? cantidad.toFixed(0) : cantidad.toFixed(2);
                     row.classList.add('table-warning');
                     setTimeout(function () { row.classList.remove('table-warning'); }, 2000);

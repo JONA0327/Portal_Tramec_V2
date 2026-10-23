@@ -5,40 +5,20 @@
             <div class="col-12 col-lg-6">
                 <div class="card">
                     <div class="card-header d-flex justify-content-between align-items-center">
-                        <span>Editar cantidad: {{ $codigo }}</span>
+                        <span>Opciones: {{ $codigo }}</span>
                         <a href="{{ route('existencias') }}" class="btn btn-sm btn-secondary">Cancelar</a>
                     </div>
 
                     <div class="card-body">
                         <p class="text-muted mb-3">{{ $nombre }}</p>
 
-                        {{-- Este ajuste queda guardado SOLO en el portal (tabla
-                             existencia_overrides), nunca se manda al ERP. Si el ERP
-                             vuelve a cambiar esta cantidad después de guardar acá, va a
-                             aparecer en "Inconsistencias" para decidir cuál vale. --}}
+                        {{-- La cantidad viene del ERP (o del Excel de Schenker) y no se edita desde el portal. --}}
                         <div class="alert alert-secondary">
-                            Cantidad actual en el ERP:
-                            <strong>{{ $cantidadErp !== null ? rtrim(rtrim(number_format($cantidadErp, 2, '.', ','), '0'), '.') : 'sin dato' }}</strong>
+                            Cantidad:
+                            <strong>{{ $cantidadErp !== null ? rtrim(rtrim(number_format($cantidadErp, 2, '.', ','), '0'), '.') : 'sin dato del ERP' }}</strong>
+                            <br><small>Viene de CONTPAQi{{ $cantidadErp === null ? ' (o del Excel de Schenker)' : '' }}; no se edita desde el portal.
+                            Si llega a cero deja de mostrarse hasta que vuelva a haber existencia.</small>
                         </div>
-
-                        @error('cantidad')
-                            <div class="alert alert-danger">{{ $message }}</div>
-                        @enderror
-
-                        <form method="POST" action="{{ route('existencias.update', [$empresa, $idProducto, $idAlmacen]) }}">
-                            @csrf
-                            @method('PUT')
-
-                            <div class="mb-3">
-                                <label class="form-label">Cantidad manual</label>
-                                <input type="number" step="0.01" min="0" name="cantidad" class="form-control"
-                                    value="{{ old('cantidad', $cantidadManual ?? $cantidadErp) }}" required autofocus>
-                            </div>
-
-                            <button type="submit" class="btn btn-primary">Guardar</button>
-                        </form>
-
-                        <hr>
 
                         {{-- Ocultar/restaurar no toca la cantidad ni el ERP -- solo si esta
                              fila aparece o no en el listado de Existencias (ver

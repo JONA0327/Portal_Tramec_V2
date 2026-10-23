@@ -6,14 +6,15 @@
             <div class="col-12 col-lg-6">
                 <div class="card border-danger">
                     <div class="card-header bg-danger text-white">
-                        Dar de baja existencia
+                        Dar de baja producto
                     </div>
 
                     <div class="card-body">
                         <p>
-                            Estás por dar de baja <strong>{{ $codigo }}</strong> ({{ $nombre }})
-                            en este almacén. Esto solo la oculta del listado activo de Existencias
-                            (queda en "Dados de baja") -- no borra nada ni afecta al ERP.
+                            Estás por dar de baja el producto <strong>{{ $codigo }}</strong> ({{ $nombre }}) en
+                            <strong>todos los almacenes</strong>. Sale de Productos y de Existencias y, aunque CONTPAQi lo siga
+                            enviando, el portal lo ignora (no aparecerá como "nuevo"). No borra nada ni modifica CONTPAQi:
+                            queda en la página <strong>Bajas</strong>, desde donde puedes reactivarlo.
                         </p>
 
                         @error('confirmacion')

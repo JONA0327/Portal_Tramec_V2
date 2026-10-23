@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Events\ExistenciaChanged;
+use App\Models\ExistenciaOverride;
 use App\Support\StockHealth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
@@ -78,6 +79,9 @@ class StockLevelService
         Cache::forever(self::CACHE_KEY_LEVELS, $levels);
         Cache::forever(self::CACHE_KEY_LAST_SYNC, now()->toDateTimeString());
 
+        // El ERP prevalece sobre los ajustes manuales que ya no coinciden con lo que trae.
+        ExistenciaOverride::reconciliarConErp($this->cantidadesPorClave($levels));
+
         return $levels;
     }
 
@@ -108,7 +112,23 @@ class StockLevelService
         Cache::forever(self::CACHE_KEY_LEVELS, array_values($levels));
         Cache::forever(self::CACHE_KEY_LAST_SYNC, now()->toDateTimeString());
 
+        ExistenciaOverride::reconciliarConErp($this->cantidadesPorClave([$level]));
+
         event(new ExistenciaChanged($level));
+    }
+
+    /** @return array<string, float> cantidad por "EMPRESA:id_producto:id_almacen" (misma clave que ExistenciaOverride::key()) */
+    private function cantidadesPorClave(array $levels): array
+    {
+        $porClave = [];
+
+        foreach ($levels as $level) {
+            if ($id = $this->levelId($level)) {
+                $porClave[$id] = (float) $level['cantidad'];
+            }
+        }
+
+        return $porClave;
     }
 
     /**

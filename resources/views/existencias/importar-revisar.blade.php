@@ -18,15 +18,18 @@
                             </li>
                             <li>{{ $p['en_catalogo'] }} coinciden con el catálogo del ERP: se guardan como cantidad del producto en ese almacén</li>
                             <li>{{ count($p['nuevas']) }} no están en el catálogo del ERP: se agregan solo a Existencias, con su código (no se crean productos)</li>
-                            <li><strong>{{ count($p['se_quitan']) + count($p['se_quitan_erp']) }}</strong> existencia(s) de una importación anterior ya no vienen en el archivo y se quitarán</li>
+                            <li><strong>{{ count($p['se_quitan']) + count($p['se_quitan_erp']) }}</strong> existencia(s) con cantidad en Schenker no vienen en el archivo y quedarán <strong>sin stock</strong> (cantidad 0, deja de mostrarse hasta que un Excel posterior la traiga)</li>
                         </ul>
 
+                        @if(! empty($p['omitidos_baja']))
+                            <div class="alert alert-secondary"><strong>Omitidos por estar de baja:</strong> {{ implode(', ', $p['omitidos_baja']) }}</div>
+                        @endif
                         @if($p['nuevas'])
                             <div class="alert alert-info"><strong>Solo en Existencias:</strong> {{ implode(', ', $p['nuevas']) }}</div>
                         @endif
                         @if($p['se_quitan'] || $p['se_quitan_erp'])
                             <div class="alert alert-warning">
-                                <strong>Se quitarán (ya no vienen en el archivo):</strong>
+                                <strong>Quedarán sin stock (no vienen en el archivo):</strong>
                                 {{ implode(', ', array_merge($p['se_quitan'], array_column($p['se_quitan_erp'], 'codigo'))) }}
                             </div>
                         @endif

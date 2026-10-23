@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\BajasController;
 use App\Http\Controllers\ExistenciasController;
 use App\Http\Controllers\ManualesController;
 use App\Http\Controllers\PriceRulesController;
@@ -36,6 +37,13 @@ Route::middleware(['auth', 'verified', 'can:admin'])->prefix('precios')->name('p
 Route::get('/manuales', [ManualesController::class, 'index'])
     ->middleware(['auth', 'verified', 'nivel:manuales'])
     ->name('manuales');
+
+// Productos dados de baja (solo ADMINISTRADOR): se ven aparte, se reactivan aquí y el portal los ignora aunque CONTPAQi los siga enviando.
+Route::middleware(['auth', 'verified', 'can:admin'])->prefix('bajas')->name('bajas')->group(function () {
+    Route::get('/', [BajasController::class, 'index']);
+    Route::post('/', [BajasController::class, 'store'])->name('.store');
+    Route::post('/{baja}/reactivar', [BajasController::class, 'reactivar'])->name('.reactivar');
+});
 
 // Administración de usuarios (solo ADMINISTRADOR): alta, edición, activar/desactivar y nivel.
 Route::middleware(['auth', 'verified', 'can:admin'])->prefix('usuarios')->name('users.')->group(function () {
@@ -75,8 +83,6 @@ Route::middleware(['auth', 'verified', 'nivel:productos', 'can:admin'])->prefix(
     Route::get('/{product}', [ProductsController::class, 'show'])->name('show');
     Route::get('/{product}/editar', [ProductsController::class, 'edit'])->name('edit');
     Route::put('/{product}', [ProductsController::class, 'update'])->name('update');
-    Route::get('/{product}/eliminar', [ProductsController::class, 'confirmDestroy'])->name('confirm-destroy');
-    Route::delete('/{product}', [ProductsController::class, 'destroy'])->name('destroy');
 });
 
 // Almacenes: se empareja con el ERP en vivo en cada visita a index() (ver
@@ -109,12 +115,8 @@ Route::middleware(['auth', 'verified', 'can:admin'])->prefix('existencias/import
 });
 
 Route::middleware(['auth', 'verified', 'nivel:existencias', 'can:admin'])->prefix('existencias')->name('existencias.')->group(function () {
-    Route::get('/inconsistencias', [ExistenciasController::class, 'inconsistencias'])->name('inconsistencias');
-    Route::post('/inconsistencias/{override}/mantener', [ExistenciasController::class, 'mantenerManual'])->name('inconsistencias.mantener');
-    Route::post('/inconsistencias/{override}/aceptar-erp', [ExistenciasController::class, 'aceptarErp'])->name('inconsistencias.aceptar-erp');
 
     Route::get('/{empresa}/{idProducto}/{idAlmacen}/editar', [ExistenciasController::class, 'edit'])->name('edit');
-    Route::put('/{empresa}/{idProducto}/{idAlmacen}', [ExistenciasController::class, 'update'])->name('update');
     Route::post('/{empresa}/{idProducto}/{idAlmacen}/ocultar', [ExistenciasController::class, 'ocultar'])->name('ocultar');
     Route::post('/{empresa}/{idProducto}/{idAlmacen}/restaurar', [ExistenciasController::class, 'restaurar'])->name('restaurar');
     Route::get('/{empresa}/{idProducto}/{idAlmacen}/dar-de-baja', [ExistenciasController::class, 'confirmBaja'])->name('confirm-baja');

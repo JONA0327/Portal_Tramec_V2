@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Events\ProductChanged;
+use App\Models\ExistenciaOverride;
 use App\Support\StockHealth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
@@ -103,6 +104,9 @@ class StockService
         Cache::forever(self::CACHE_KEY_PRODUCTS, $products);
         Cache::forever(self::CACHE_KEY_LAST_SYNC, now()->toDateTimeString());
 
+        // Lo que solo existía por el Excel de Schenker y ya se dio de alta en CONTPAQi se liga al producto real.
+        ExistenciaOverride::ligarConCatalogo($products);
+
         return $products;
     }
 
@@ -134,6 +138,8 @@ class StockService
 
         Cache::forever(self::CACHE_KEY_PRODUCTS, array_values($products));
         Cache::forever(self::CACHE_KEY_LAST_SYNC, now()->toDateTimeString());
+
+        ExistenciaOverride::ligarConCatalogo([$product]);
 
         event(new ProductChanged($product));
     }

@@ -3,11 +3,13 @@
 namespace App\Http\Controllers;
 
 use App\Models\ExistenciaOverride;
+use App\Models\ProductoBaja;
 use App\Models\Product;
 use App\Models\Warehouse;
 use App\Services\PriceAdjuster;
 use App\Services\StockLevelService;
 use App\Services\StockService;
+use App\Support\Codigo;
 use App\Support\StockHealth;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\RequestException;
@@ -23,25 +25,18 @@ use Illuminate\Support\Str;
 use Illuminate\View\View;
 
 /**
- * Existencias: cantidad de cada producto por almacén, en vivo desde
- * StockLevelService (caché + sync completo cada 15 min + webhook en tiempo
- * real, ver servicio-stock::_vigilar_existencias). Las cantidades son 100%
- * información del ERP -- PERO se puede guardar un ajuste manual por encima
- * (ver ExistenciaOverride), completamente separado del caché del ERP:
- *  - "Editar" guarda una cantidad manual + una FOTO de lo que decía el ERP
- *    en ese momento (cantidad_erp_al_editar).
- *  - Si el ERP vuelve a cambiar después de esa edición, la foto ya no
- *    coincide con el valor actual del caché -> eso ES la inconsistencia
- *    (ver inconsistencias()/ExistenciaOverride::tieneConflicto()). Ninguno
- *    de los dos valores se pisa solo: queda pendiente hasta que alguien
- *    decida (mantenerManual() o aceptarErp()).
- *  - "Ocultar" y "Dar de baja" son switches independientes de la cantidad:
- *    solo afectan qué se muestra en el portal, nunca tocan el ERP ni
- *    servicio-stock (a diferencia del "Bloquear" de Productos, que sí llama
- *    a la blacklist del API).
+ * Existencias: cantidad de cada producto por almacén, en vivo desde StockLevelService
+ * (caché + sync completo cada pocos minutos + webhook en tiempo real, ver
+ * servicio-stock::_vigilar_existencias). Todo lo ligado al ERP trae su cantidad de CONTPAQi y NO se
+ * edita desde el portal; lo que llega a cero deja de mostrarse hasta que vuelva a haber existencia.
+ * La única cantidad que no viene del ERP es la del almacén Schenker, cargada desde Excel (ver
+ * ExistenciaOverride).
+ *  - "Ocultar" y "Dar de baja" son switches del portal: solo afectan qué se muestra, nunca tocan el
+ *    ERP ni servicio-stock (a diferencia del "Bloquear" de Productos, que sí llama a la blacklist
+ *    del API).
  *
- * También se muestran los precios por canal (tabla local `products`), de
- * solo lectura también, para tener todo junto en una sola vista.
+ * También se muestran los precios por canal (tabla local `products`), de solo lectura también,
+ * para tener todo junto en una sola vista.
  */
 class ExistenciasController extends Controller
 {
@@ -53,12 +48,15 @@ class ExistenciasController extends Controller
         $empresa = trim((string) $request->query('empresa', ''));
         $almacen = trim((string) $request->query('almacen', ''));
         $estado = $request->query('estado', 'con_existencia');
+        if ($estado !== 'ocultos') {
+            $estado = 'con_existencia'; // lo que está en cero no se muestra hasta que vuelva a haber
+        }
         // Clasificación = campo "Tipo de producto" (products.kind_of_product), como en v1.
         $clasificacion = trim((string) $request->query('clasificacion', ''));
         $agrupar = $request->boolean('agrupar'); // un renglón por modelo, con sus almacenes aparte
 
-        if (! $request->user()->isAdmin() && in_array($estado, ['ocultos', 'bajas'], true)) {
-            $estado = 'con_existencia'; // ocultos y bajas son de administración
+        if (! $request->user()->isAdmin() && $estado === 'ocultos') {
+            $estado = 'con_existencia'; // los ocultos son de administración
         }
 
         $productsByKey = collect($stock->getProducts())
@@ -101,7 +99,7 @@ class ExistenciasController extends Controller
             ->get()
             ->keyBy(fn (Product $p) => strtoupper($p->idERP_empresa).':'.$p->idERP);
 
-        $localPricesByName = Product::query()->get()->keyBy(fn (Product $p) => strtoupper(trim($p->name)));
+        $localPricesByName = Product::query()->get()->keyBy(fn (Product $p) => Codigo::normalizar($p->name));
 
         $overridesByKey = ExistenciaOverride::all()->keyBy->key();
 
@@ -113,7 +111,7 @@ class ExistenciasController extends Controller
             ->filter(fn (ExistenciaOverride $o) => $o->cantidad_manual !== null && ! $erpKeys->has($o->key()))
             ->map(fn (ExistenciaOverride $o) => [
                 'empresa_codigo' => $o->empresa, 'id_producto' => $o->id_producto,
-                'id_almacen' => $o->id_almacen, 'cantidad' => 0,
+                'id_almacen' => $o->id_almacen, 'cantidad' => 0, 'sin_erp' => true,
             ]);
 
         $rows = $levels->concat($soloManuales)->map(function (array $level) use ($adjuster, $productsByKey, $warehouseNamesByKey, $warehouseAliasesByKey, $localPricesByKey, $localPricesByName, $overridesByKey) {
@@ -123,9 +121,11 @@ class ExistenciasController extends Controller
             $almacenNombre = $warehouseAliasesByKey->get($almacenKey) ?? $warehouseNamesByKey->get($almacenKey);
             $override = $overridesByKey->get("{$empresaCodigo}:{$level['id_producto']}:{$level['id_almacen']}");
             $precios = $localPricesByKey->get("{$empresaCodigo}:{$level['id_producto']}")
-                ?? ($override?->codigo ? $localPricesByName->get(strtoupper(trim($override->codigo))) : null);
+                ?? ($override?->codigo ? $localPricesByName->get(Codigo::normalizar($override->codigo)) : null);
             $cantidadErp = (float) $level['cantidad'];
             $tieneManual = $override && $override->cantidad_manual !== null;
+            // Solo las existencias que el ERP no reporta (Schenker, por Excel) usan la cantidad guardada.
+            $usaManual = $tieneManual && ($level['sin_erp'] ?? false);
 
             $codigo = $producto['codigo'] ?? $override?->codigo ?? "#{$level['id_producto']}";
             $nombre = $producto['nombre'] ?? $override?->nombre ?? $precios?->name ?? '(producto no encontrado en el catálogo)';
@@ -151,9 +151,7 @@ class ExistenciasController extends Controller
                 'descripcion' => $precios?->description_short ?: $nombre, // descripción corta de products; si no hay, la del ERP
                 'almacen' => $almacenNombre ?: "Almacén #{$level['id_almacen']}",
                 'cantidad_erp' => $cantidadErp,
-                'cantidad' => $tieneManual ? (float) $override->cantidad_manual : $cantidadErp,
-                'tiene_manual' => $tieneManual,
-                'conflicto' => $override ? $override->tieneConflicto($cantidadErp) : false,
+                'cantidad' => $usaManual ? (float) $override->cantidad_manual : $cantidadErp,
                 'oculto' => $override?->oculto ?? false,
                 'de_baja' => $override?->de_baja ?? false,
                 'moneda' => $precios?->base_currency ?: 'MXN',
@@ -163,12 +161,14 @@ class ExistenciasController extends Controller
             ];
         });
 
+        // Los productos dados de baja (página Bajas) no salen aquí aunque CONTPAQi los siga reportando.
+        $rows = $rows->reject(fn (array $r) => ProductoBaja::esBaja($r['empresa'], $r['codigo']))->values();
+
         // Conteos sobre el total sin filtrar, para que los avisos del header no
         // cambien según lo que se esté buscando en ese momento.
         $counts = [
             'ocultos' => $rows->where('oculto', true)->count(),
-            'bajas' => $rows->where('de_baja', true)->count(),
-            'conflictos' => $rows->where('conflicto', true)->count(),
+            'bajas' => ProductoBaja::count(),
         ];
 
         // Por defecto no se muestran los ocultos ni las bajas -- son sus propios
@@ -176,14 +176,9 @@ class ExistenciasController extends Controller
         // resto de la lista activa.
         if ($estado === 'ocultos') {
             $filtered = $rows->where('oculto', true);
-        } elseif ($estado === 'bajas') {
-            $filtered = $rows->where('de_baja', true);
         } else {
-            $filtered = $rows->where('oculto', false)->where('de_baja', false);
-
-            if ($estado === 'con_existencia') {
-                $filtered = $filtered->filter(fn (array $r) => $r['cantidad'] > 0);
-            }
+            // Sin existencia = no se muestra; reaparece sola cuando el ERP vuelve a reportar cantidad.
+            $filtered = $rows->where('oculto', false)->filter(fn (array $r) => $r['cantidad'] > 0);
         }
 
         $empresas = $rows->pluck('empresa')->unique()->sort()->values();
@@ -216,7 +211,7 @@ class ExistenciasController extends Controller
                     'almacenes' => $g->map(fn (array $r) => [
                         'almacen' => $r['almacen'], 'cantidad' => $r['cantidad'], 'empresa' => $r['empresa'],
                         'id_producto' => $r['id_producto'], 'id_almacen' => $r['id_almacen'],
-                        'tiene_manual' => $r['tiene_manual'], 'conflicto' => $r['conflicto'], 'de_baja' => $r['de_baja'],
+                        'de_baja' => $r['de_baja'],
                     ])->sortBy('almacen')->values()->all(),
                     'total' => $g->sum('cantidad'),
                 ])
@@ -250,13 +245,13 @@ class ExistenciasController extends Controller
     }
 
     /**
-     * Carga masiva desde Excel (hoja "Referencia | Disp") del almacén Schenker. Dos pasos: importar() lee y valida el archivo y guarda la vista
-     * previa en sesión; confirmarImportacion() aplica. Si la referencia está en el
-     * catálogo del ERP se guarda como ajuste manual de ese producto; si no, se crea
-     * una existencia solo acá (no se toca `products`). Las existencias "nuevas" que
-     * una importación anterior dejó en ese almacén y que ya no vienen en el archivo
-     * se quitan (el archivo es la foto del almacén); los ajustes de productos del
-     * ERP no se tocan porque no se distinguen de una edición manual.
+     * Carga masiva desde Excel (hoja "Referencia | Disp") del almacén Schenker. Dos pasos: importar()
+     * lee y valida el archivo y guarda la vista previa en sesión; confirmarImportacion() aplica.
+     * Lo que viene en el archivo se guarda con la cantidad del Excel, que prevalece sobre la que haya
+     * en la BD (si la referencia está en el catálogo del ERP se liga a ese producto; si no, se crea
+     * una existencia solo acá, sin tocar `products`). Lo que ya tenía cantidad en Schenker y NO viene
+     * en el archivo no se borra: queda en 0, porque si no viene es que no hay disponible; deja de
+     * mostrarse y reaparece cuando un Excel posterior lo traiga con cantidad.
      */
     public function importar(Request $request, StockService $stock): RedirectResponse
     {
@@ -281,17 +276,25 @@ class ExistenciasController extends Controller
         $almacen = (int) $warehouse->almacen_erp_id;
         $catalogo = $this->catalogoPorCodigo($stock, $empresa);
 
-        $enCatalogo = array_filter($filas, fn ($f) => $catalogo->has(strtoupper($f[0])));
-        $nuevas = array_values(array_map(fn ($f) => $f[0], array_diff_key($filas, $enCatalogo)));
-        $seQuitan = ExistenciaOverride::where('empresa', $empresa)->where('id_almacen', $almacen)->whereNotNull('codigo')
-            ->pluck('codigo')->filter(fn ($c) => ! array_key_exists(strtoupper($c), $filas))->values()->all();
+        // Los productos dados de baja (página Bajas) se omiten aunque vengan en el Excel.
+        $omitidosBaja = array_values(array_map(fn ($f) => $f[0], array_filter($filas, fn ($f) => ProductoBaja::esBaja($empresa, $f[0]))));
+        $filas = array_filter($filas, fn ($f) => ! ProductoBaja::esBaja($empresa, $f[0]));
 
-        // Productos del catálogo que ya tenían cantidad en Schenker y ya no vienen en el archivo: el
-        // archivo es la foto completa del almacén, así que se quitan.
+        if ($filas === []) {
+            return back()->withErrors(['archivo' => 'Todas las referencias del archivo están dadas de baja.']);
+        }
+
+        $enCatalogo = array_filter($filas, fn ($f) => $catalogo->has(Codigo::normalizar($f[0])));
+        $nuevas = array_values(array_map(fn ($f) => $f[0], array_diff_key($filas, $enCatalogo)));
+        // Lo que tiene cantidad en Schenker y no viene en el archivo queda en 0 (sin stock), no se borra.
+        $seQuitan = ExistenciaOverride::where('empresa', $empresa)->where('id_almacen', $almacen)->whereNotNull('codigo')->where('cantidad_manual', '>', 0)
+            ->pluck('codigo')->filter(fn ($c) => ! array_key_exists(Codigo::normalizar($c), $filas))->values()->all();
+
+        // Productos del catálogo que ya tenían cantidad en Schenker y no vienen en el archivo: quedan en 0.
         $idsEnArchivo = $catalogo->filter(fn ($p, $code) => array_key_exists($code, $filas))->pluck('id')->all();
         $codigoPorId = $catalogo->mapWithKeys(fn ($p) => [$p['id'] => $p['codigo']]);
         $seQuitanErp = ExistenciaOverride::where('empresa', $empresa)->where('id_almacen', $almacen)
-            ->whereNull('codigo')->whereNotNull('cantidad_manual')->where('id_producto', '<', 1_000_000_000)
+            ->whereNull('codigo')->where('cantidad_manual', '>', 0)->where('id_producto', '<', 1_000_000_000)
             ->whereNotIn('id_producto', $idsEnArchivo)
             ->pluck('id_producto')
             ->map(fn ($id) => ['id' => (int) $id, 'codigo' => $codigoPorId->get($id, "#{$id}")])
@@ -308,6 +311,7 @@ class ExistenciasController extends Controller
             'nuevas' => $nuevas,
             'se_quitan' => $seQuitan,
             'se_quitan_erp' => $seQuitanErp,
+            'omitidos_baja' => $omitidosBaja,
         ]]);
 
         return redirect()->route('existencias.importar.revisar');
@@ -333,9 +337,11 @@ class ExistenciasController extends Controller
         $catalogo = $this->catalogoPorCodigo($stock, $p['empresa']);
         $coinciden = $nuevas = 0;
 
-        DB::transaction(function () use ($p, $catalogo, &$coinciden, &$nuevas) {
+        DB::transaction(function () use ($p, $catalogo, $stock, &$coinciden, &$nuevas) {
+            ExistenciaOverride::ligarConCatalogo($stock->getProducts());
+
             foreach ($p['filas'] as [$ref, $cantidad]) {
-                $erp = $catalogo->get(strtoupper($ref));
+                $erp = $catalogo->get(Codigo::normalizar($ref));
                 $where = $erp
                     ? ['empresa' => $p['empresa'], 'id_producto' => $erp['id'], 'id_almacen' => $p['id_almacen']]
                     : ['empresa' => $p['empresa'], 'id_almacen' => $p['id_almacen'], 'codigo' => $ref];
@@ -350,24 +356,20 @@ class ExistenciasController extends Controller
                 $erp ? $coinciden++ : $nuevas++;
             }
 
+            // Lo que ya no viene en el archivo queda en 0 (sin stock): se conserva la fila y sus marcas.
             if ($p['se_quitan']) {
                 ExistenciaOverride::where('empresa', $p['empresa'])->where('id_almacen', $p['id_almacen'])
-                    ->whereIn('codigo', $p['se_quitan'])->delete();
+                    ->whereIn('codigo', $p['se_quitan'])->update(['cantidad_manual' => 0, 'updated_by' => Auth::id()]);
             }
 
-            // Productos del catálogo que ya no vienen: se borra el ajuste, salvo que esté oculto o dado
-            // de baja (eso se conserva y solo se le quita la cantidad).
             foreach ($p['se_quitan_erp'] as ['id' => $id]) {
-                $o = ExistenciaOverride::where(['empresa' => $p['empresa'], 'id_almacen' => $p['id_almacen'], 'id_producto' => $id])->first();
-                if (! $o) {
-                    continue;
-                }
-                ($o->oculto || $o->de_baja) ? $o->forceFill(['cantidad_manual' => null])->save() : $o->delete();
+                ExistenciaOverride::where(['empresa' => $p['empresa'], 'id_almacen' => $p['id_almacen'], 'id_producto' => $id])
+                    ->update(['cantidad_manual' => 0, 'updated_by' => Auth::id()]);
             }
         });
 
         return redirect()->route('existencias', ['almacen' => $p['almacen']])
-            ->with('status', "Excel importado en {$p['almacen']}: {$coinciden} del catálogo, {$nuevas} nuevas solo en Existencias, ".(count($p['se_quitan']) + count($p['se_quitan_erp'])).' quitadas.');
+            ->with('status', "Excel importado en {$p['almacen']}: {$coinciden} del catálogo, {$nuevas} nuevas solo en Existencias, ".(count($p['se_quitan']) + count($p['se_quitan_erp'])).' que ya no vienen quedaron sin stock.');
     }
 
     public function cancelarImportacion(Request $request): RedirectResponse
@@ -381,7 +383,7 @@ class ExistenciasController extends Controller
     {
         return collect($stock->getProducts())
             ->filter(fn (array $p) => ($p['empresa_codigo'] ?? 'TRAMEC') === $empresa)
-            ->keyBy(fn (array $p) => strtoupper(trim($p['codigo'])));
+            ->keyBy(fn (array $p) => Codigo::normalizar($p['codigo']));
     }
 
     /**
@@ -413,7 +415,7 @@ class ExistenciasController extends Controller
                 continue;
             }
             if (is_numeric($vals['B'] ?? null)) {
-                $filas[strtoupper($ref)] = [$ref, (float) $vals['B']];
+                $filas[Codigo::normalizar($ref)] = [$ref, (float) $vals['B']];
             } elseif ($n++ > 0) { // la primera fila con texto es el encabezado
                 $omitidas++;
             }
@@ -440,31 +442,8 @@ class ExistenciasController extends Controller
             'codigo' => $producto['codigo'] ?? $override?->codigo ?? "#{$idProducto}",
             'nombre' => $producto['nombre'] ?? $override?->nombre ?? '(producto no encontrado en el catálogo)',
             'cantidadErp' => $cantidadErp,
-            'cantidadManual' => $override?->cantidad_manual,
             'oculto' => $override?->oculto ?? false,
         ]);
-    }
-
-    public function update(Request $request, string $empresa, int $idProducto, int $idAlmacen, StockLevelService $stockLevels): RedirectResponse
-    {
-        $empresa = strtoupper($empresa);
-        $data = $request->validate(['cantidad' => ['required', 'numeric', 'min:0']]);
-        $cantidadErp = $this->cantidadActualDelErp($stockLevels, $empresa, $idProducto, $idAlmacen);
-
-        $override = ExistenciaOverride::query()->firstOrNew([
-            'empresa' => $empresa,
-            'id_producto' => $idProducto,
-            'id_almacen' => $idAlmacen,
-        ]);
-        $override->forceFill([
-            'cantidad_manual' => $data['cantidad'],
-            // Foto del ERP en este momento: si más adelante cambia, ESO es la
-            // inconsistencia (ver ExistenciaOverride::tieneConflicto()).
-            'cantidad_erp_al_editar' => $cantidadErp,
-            'updated_by' => Auth::id(),
-        ])->save();
-
-        return redirect()->route('existencias')->with('status', 'Cantidad actualizada manualmente.');
     }
 
     public function ocultar(string $empresa, int $idProducto, int $idAlmacen): RedirectResponse
@@ -507,89 +486,34 @@ class ExistenciasController extends Controller
         ]);
     }
 
-    public function darDeBaja(Request $request, string $empresa, int $idProducto, int $idAlmacen): RedirectResponse
+    public function darDeBaja(Request $request, StockService $stock, string $empresa, int $idProducto, int $idAlmacen): RedirectResponse
     {
-        // Misma seguridad que Productos/Almacenes: hay que escribir "confirmar".
+        // Misma seguridad que Almacenes: hay que escribir "confirmar".
         $request->validate(['confirmacion' => ['required', 'string']]);
 
         if (strtolower(trim($request->input('confirmacion'))) !== 'confirmar') {
             return back()
-                ->withErrors(['confirmacion' => 'Tenés que escribir la palabra "confirmar" para dar de baja esta existencia.'])
+                ->withErrors(['confirmacion' => 'Tenés que escribir la palabra "confirmar" para dar de baja este producto.'])
                 ->withInput();
         }
 
-        $override = ExistenciaOverride::query()->firstOrNew([
-            'empresa' => strtoupper($empresa),
-            'id_producto' => $idProducto,
-            'id_almacen' => $idAlmacen,
-        ]);
-        $override->forceFill([
-            'de_baja' => true,
-            'de_baja_at' => now(),
-            'de_baja_by' => Auth::id(),
-        ])->save();
+        $empresa = strtoupper($empresa);
+        $producto = collect($stock->getProducts())
+            ->first(fn (array $p) => strtoupper($p['empresa_codigo'] ?? 'TRAMEC') === $empresa && (int) $p['id'] === $idProducto);
+        $override = ExistenciaOverride::where(['empresa' => $empresa, 'id_producto' => $idProducto, 'id_almacen' => $idAlmacen])->first();
+        $codigo = $producto['codigo'] ?? $override?->codigo;
 
-        return redirect()->route('existencias')->with('status', 'Existencia dada de baja.');
-    }
+        if (! $codigo) {
+            return back()->withErrors(['confirmacion' => 'No se pudo identificar el código de este producto.']);
+        }
 
-    public function inconsistencias(StockLevelService $stockLevels, StockService $stock): View
-    {
-        $productsByKey = collect($stock->getProducts())
-            ->keyBy(fn (array $p) => ($p['empresa_codigo'] ?? 'TRAMEC').':'.$p['id']);
+        // La baja es por producto (todos los almacenes): sale de Productos y de Existencias y vive en Bajas.
+        ProductoBaja::firstOrCreate(
+            ['empresa' => $empresa, 'codigo' => ProductoBaja::normalizar($codigo)],
+            ['id_erp' => $producto['id'] ?? null, 'nombre' => $producto['nombre'] ?? $override?->nombre, 'dado_de_baja_por' => Auth::id()]
+        );
 
-        $cantidadesActuales = collect($stockLevels->getLevels())
-            ->keyBy(fn (array $l) => ($l['empresa_codigo'] ?? 'TRAMEC').':'.$l['id_producto'].':'.$l['id_almacen']);
-
-        $pendientes = ExistenciaOverride::query()
-            ->whereNotNull('cantidad_manual')
-            ->whereNotNull('cantidad_erp_al_editar')
-            ->get()
-            ->map(function (ExistenciaOverride $o) use ($productsByKey, $cantidadesActuales) {
-                $nivel = $cantidadesActuales->get($o->key());
-                $cantidadActual = $nivel ? (float) $nivel['cantidad'] : null;
-                $producto = $productsByKey->get("{$o->empresa}:{$o->id_producto}");
-
-                return [
-                    'override' => $o,
-                    'codigo' => $producto['codigo'] ?? "#{$o->id_producto}",
-                    'nombre' => $producto['nombre'] ?? '(producto no encontrado en el catálogo)',
-                    'cantidad_actual_erp' => $cantidadActual,
-                    'conflicto' => $o->tieneConflicto($cantidadActual),
-                ];
-            })
-            ->filter(fn (array $r) => $r['conflicto'])
-            ->values();
-
-        return view('existencias.inconsistencias', ['pendientes' => $pendientes]);
-    }
-
-    /**
-     * El ERP volvió a cambiar después de la edición manual, pero se decide
-     * mantener el valor manual de todas formas: se actualiza la "foto" al
-     * valor actual del ERP para que deje de marcarse como pendiente (hasta
-     * que el ERP cambie de nuevo).
-     */
-    public function mantenerManual(ExistenciaOverride $override, StockLevelService $stockLevels): RedirectResponse
-    {
-        $cantidadErp = $this->cantidadActualDelErp($stockLevels, $override->empresa, $override->id_producto, $override->id_almacen);
-        $override->forceFill(['cantidad_erp_al_editar' => $cantidadErp, 'updated_by' => Auth::id()])->save();
-
-        return back()->with('status', 'Se mantiene la cantidad manual.');
-    }
-
-    /**
-     * Se descarta el ajuste manual: de acá en más vuelve a mostrarse la
-     * cantidad tal cual la trae el ERP.
-     */
-    public function aceptarErp(ExistenciaOverride $override): RedirectResponse
-    {
-        $override->forceFill([
-            'cantidad_manual' => null,
-            'cantidad_erp_al_editar' => null,
-            'updated_by' => Auth::id(),
-        ])->save();
-
-        return back()->with('status', 'Se aceptó la cantidad del ERP.');
+        return redirect()->route('existencias')->with('status', "{$codigo} dado de baja (todos los almacenes). Puedes reactivarlo desde Bajas.");
     }
 
     private function cantidadActualDelErp(StockLevelService $stockLevels, string $empresa, int $idProducto, int $idAlmacen): ?float

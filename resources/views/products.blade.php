@@ -31,6 +31,10 @@
                             @if(! $cliente && $counts['advertencia'] > 0)
                                 &nbsp;·&nbsp;<a href="{{ route('products', ['estado' => 'advertencia']) }}" class="text-warning">⚠ {{ $counts['advertencia'] }} sin emparejar</a>
                             @endif
+                            &nbsp;·&nbsp;<span id="live-status" class="text-muted"
+                                @if(! config('broadcasting.connections.pusher.key')) title="Falta configurar PUSHER_APP_KEY / PUSHER_APP_CLUSTER y BROADCAST_CONNECTION=pusher en el .env del servidor" @endif>
+                                {{ config('broadcasting.connections.pusher.key') ? '○ Conectando…' : '○ Tiempo real desactivado' }}
+                            </span>
                         </small>
                     </div>
 
@@ -132,7 +136,14 @@
                                                     @if($row['local_id'])
                                                         <a href="{{ route('products.show', $row['local_id']) }}" class="btn btn-sm btn-secondary">Ver</a>
                                                         <a href="{{ route('products.edit', $row['local_id']) }}" class="btn btn-sm btn-primary">Editar</a>
-                                                        <a href="{{ route('products.confirm-destroy', $row['local_id']) }}" class="btn btn-sm btn-danger">Borrar</a>
+                                                        <form method="POST" action="{{ route('bajas.store') }}" class="d-inline"
+                                                        onsubmit="return confirm('¿Dar de baja este producto? Sale de Productos y de Existencias (todos los almacenes) y, aunque CONTPAQi lo siga enviando, el portal lo ignora. Puedes reactivarlo desde Bajas.')">
+                                                        @csrf
+                                                        <input type="hidden" name="empresa" value="{{ $row['erp_empresa'] }}">
+                                                        <input type="hidden" name="codigo" value="{{ $row['codigo'] }}">
+                                                        <input type="hidden" name="id_erp" value="{{ $row['erp_id'] }}">
+                                                        <button type="submit" class="btn btn-sm btn-danger">Dar de baja</button>
+                                                    </form>
                                                     @else
                                                         {{-- Registro de un clic: crea el registro local ya vinculado al
                                                              idERP (nombre/código los toma del ERP), sin pedir nada más.
@@ -153,6 +164,14 @@
                                                             <input type="hidden" name="erp_id" value="{{ $row['erp_id'] }}">
                                                             <button type="submit" class="btn btn-sm btn-outline-secondary">Bloquear</button>
                                                         </form>
+                                                        <form method="POST" action="{{ route('bajas.store') }}" class="d-inline"
+                                                        onsubmit="return confirm('¿Dar de baja este producto? Sale de Productos y de Existencias (todos los almacenes) y, aunque CONTPAQi lo siga enviando, el portal lo ignora. Puedes reactivarlo desde Bajas.')">
+                                                        @csrf
+                                                        <input type="hidden" name="empresa" value="{{ $row['erp_empresa'] }}">
+                                                        <input type="hidden" name="codigo" value="{{ $row['codigo'] }}">
+                                                        <input type="hidden" name="id_erp" value="{{ $row['erp_id'] }}">
+                                                        <button type="submit" class="btn btn-sm btn-danger">Dar de baja</button>
+                                                    </form>
                                                     @endif
                                                 </td>
                                                 @endif
@@ -180,9 +199,21 @@
         <script src="https://cdn.jsdelivr.net/npm/pusher-js@8.4.0/dist/web/pusher.min.js"></script>
         <script>
             (function () {
+                var estado = document.getElementById('live-status');
+                function enVivo(ok, texto) {
+                    if (estado) { estado.textContent = (ok ? '● ' : '○ ') + texto; estado.className = ok ? 'text-success' : 'text-muted'; }
+                }
+                if (typeof Pusher === 'undefined') {
+                    enVivo(false, 'Sin tiempo real (no cargó pusher-js)');
+                    return;
+                }
                 var pusher = new Pusher(@json(config('broadcasting.connections.pusher.key')), {
                     cluster: @json(config('broadcasting.connections.pusher.options.cluster')),
                 });
+                pusher.connection.bind('state_change', function (s) {
+                    enVivo(s.current === 'connected', s.current === 'connected' ? 'En vivo' : (s.current === 'connecting' ? 'Conectando…' : 'Sin conexión en vivo'));
+                });
+                pusher.connection.bind('error', function () { enVivo(false, 'Sin conexión en vivo'); });
 
                 pusher.subscribe('stock-updates').bind('product.changed', function (product) {
                     var key = (product.empresa_codigo || 'TRAMEC') + ':' + product.id;
@@ -191,7 +222,6 @@
                         return;
                     }
                     row.querySelector('.col-codigo').textContent = product.codigo ?? '-';
-                    row.querySelector('.col-nombre').textContent = product.nombre ?? '-';
                     row.classList.add('table-warning');
                     setTimeout(function () { row.classList.remove('table-warning'); }, 2000);
                 });

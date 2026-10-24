@@ -1,13 +1,14 @@
-{{-- "Mostrar N registros" (como el de DataTables en v1). Al cambiarlo se recarga la misma página con
-     ?por_pagina=N, conservando los filtros y volviendo a la página 1. --}}
+{{-- "Mostrar N registros" (como el de DataTables en v1). Son enlaces normales (sin JavaScript): conservan los
+     filtros, vuelven a la página 1 y funcionan igual con cualquier política de seguridad del navegador. --}}
 @props(['actual'])
-<label class="d-flex align-items-center mb-3" style="gap: 8px;">
-    Mostrar
-    <select class="form-control" style="width: auto; min-width: 84px;" aria-label="Registros por página"
-        onchange="var u = new URL(window.location.href); u.searchParams.set('por_pagina', this.value); u.searchParams.delete('page'); window.location = u;">
+<div class="d-flex align-items-center flex-wrap mb-3" style="gap: 8px;">
+    <span>Mostrar</span>
+    <div class="btn-group" role="group" aria-label="Registros por página">
         @foreach(\App\Support\PorPagina::OPCIONES as $n)
-            <option value="{{ $n }}" @selected((int) $actual === $n)>{{ $n }}</option>
+            <a href="{{ request()->fullUrlWithQuery(['por_pagina' => $n, 'page' => null]) }}"
+                class="btn btn-sm {{ (int) $actual === $n ? 'btn-primary' : 'btn-outline-secondary' }}"
+                @if((int) $actual === $n) aria-current="true" @endif>{{ $n }}</a>
         @endforeach
-    </select>
-    registros
-</label>
+    </div>
+    <span>registros</span>
+</div>

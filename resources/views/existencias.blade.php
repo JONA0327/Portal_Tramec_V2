@@ -49,6 +49,7 @@
                             {{-- Avanzado: empresa + almacén + estado + palabras (en cualquier orden); busca solo al
                                  pulsar "Buscar" o Enter. "Agrupar por modelo" junta los almacenes de cada modelo en un renglón. --}}
                             <form method="GET" action="{{ route('existencias') }}" class="filtros-barra">
+                                <input type="hidden" name="por_pagina" value="{{ $perPage }}">
                                 <select name="empresa" class="form-control" aria-label="Empresa">
                                     <option value="">Todas las empresas</option>
                                     @foreach($empresas as $empresaOption)
@@ -120,6 +121,8 @@
                                 </div>
                             </div>
                             @endcan
+
+                        <x-por-pagina :actual="$perPage" />
 
                         @if($levels->isEmpty())
                             <p class="mb-0">

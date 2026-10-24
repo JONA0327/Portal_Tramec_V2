@@ -88,11 +88,19 @@ class PriceRule extends Model
         return in_array($column, $this->columnas ?? [], true) && $this->matches($codigo, $nombre);
     }
 
-    // ponytail: aumento = ×(1+%); v1 usaba ÷(1−%) (5% → +5.26%). Cambiar acá si negocio quiere la fórmula vieja.
+    /**
+     * Descuento: precio × (1 − %). Aumento: precio ÷ (1 − %), igual que en el portal anterior (v1):
+     * con 3 % es precio ÷ 0.97, o sea un margen sobre el precio final y no un recargo de 3 %.
+     */
     public function apply(float $price): float
     {
-        $factor = $this->tipo === 'descuento' ? 1 - $this->porcentaje / 100 : 1 + $this->porcentaje / 100;
+        $base = 1 - $this->porcentaje / 100;
 
-        return $price * $factor;
+        if ($this->tipo === 'descuento') {
+            return $price * $base;
+        }
+
+        // Un aumento de 100 % o más no tiene sentido con esta fórmula (la validación ya lo impide): sin división entre 0.
+        return $base > 0 ? $price / $base : $price;
     }
 }

@@ -32,7 +32,7 @@
                                         <label class="form-label" for="tipo">Tipo</label>
                                         <select id="tipo" name="tipo" class="form-control">
                                             <option value="descuento" @selected(old('tipo', $rule->tipo) === 'descuento')>Descuento (baja el precio)</option>
-                                            <option value="aumento" @selected(old('tipo', $rule->tipo) === 'aumento')>Aumento (sube el precio)</option>
+                                            <option value="aumento" @selected(old('tipo', $rule->tipo) === 'aumento')>Aumento (precio ÷ (1 − %))</option>
                                         </select>
                                     </div>
                                     <div class="col-md-6 mb-3">

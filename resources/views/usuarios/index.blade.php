@@ -23,6 +23,7 @@
                         @endif
 
                         <form method="GET" action="{{ route('users.index') }}" class="mb-3 d-flex flex-wrap" style="gap: 8px;">
+                            <input type="hidden" name="por_pagina" value="{{ $perPage }}">
                             <input type="text" name="buscar" value="{{ $buscar }}" class="form-control" style="max-width: 280px;" placeholder="Nombre o correo" autocomplete="off">
                             <select name="estado" class="form-control" style="max-width: 160px;" onchange="this.form.submit()">
                                 <option value="">Todos</option>
@@ -38,6 +39,8 @@
                             </select>
                             <button type="submit" class="btn btn-secondary">Buscar</button>
                         </form>
+
+                        <x-por-pagina :actual="$perPage" />
 
                         @if($users->isEmpty())
                             <p class="mb-0">No se encontraron usuarios.</p>

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\PriceRule;
 use App\Models\User;
+use App\Support\PorPagina;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -38,11 +39,12 @@ class UsersController extends Controller
             // Los pendientes de aprobación primero, luego por nombre.
             ->orderByRaw('COALESCE(active_flag, 0) asc')
             ->orderBy('first_name')
-            ->paginate(self::PER_PAGE)
+            ->paginate(PorPagina::desde($request, self::PER_PAGE))
             ->withQueryString();
 
         return view('usuarios.index', [
             'users' => $users,
+            'perPage' => $users->perPage(),
             'buscar' => $buscar,
             'estado' => $estado,
             'nivel' => $nivel,

@@ -16,7 +16,11 @@ class PriceRuleTest extends TestCase
     public function test_aplica_descuento_y_aumento(): void
     {
         $this->assertEqualsWithDelta(90.0, $this->rule([])->apply(100), 0.001);
-        $this->assertEqualsWithDelta(105.0, $this->rule(['tipo' => 'aumento', 'porcentaje' => 5])->apply(100), 0.001);
+        $this->assertEqualsWithDelta(970.0, $this->rule(['porcentaje' => 3])->apply(1000), 0.001); // descuento 3 % => precio x 0.97, sin cambios
+        $this->assertEqualsWithDelta(0.0, $this->rule(['porcentaje' => 100])->apply(500), 0.001);    // descuento 100 % => gratis, como antes
+        $this->assertEqualsWithDelta(100 / 0.95, $this->rule(['tipo' => 'aumento', 'porcentaje' => 5])->apply(100), 0.001);
+        $this->assertEqualsWithDelta(1000 / 0.97, $this->rule(['tipo' => 'aumento', 'porcentaje' => 3])->apply(1000), 0.001); // 3 % => precio / 0.97
+        $this->assertEqualsWithDelta(500.0, $this->rule(['tipo' => 'aumento', 'porcentaje' => 100])->apply(500), 0.001); // sin división entre 0
     }
 
     public function test_filtra_por_codigo_o_descripcion_con_varios_terminos(): void

@@ -10,6 +10,7 @@ use App\Services\StockService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
+use App\Support\PorPagina;
 use App\Support\Search;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
@@ -31,7 +32,7 @@ use Illuminate\View\View;
  */
 class ProductsController extends Controller
 {
-    private const PER_PAGE = 10;
+    private const PER_PAGE = 10; // predeterminado; el usuario puede elegir 10/25/50/100 (ver PorPagina)
 
     /** @return array<string, mixed> los 5 precios de un producto local, con las mismas claves que PriceRule::COLUMNAS. */
     private function preciosDe(?Product $p): array
@@ -157,17 +158,19 @@ class ProductsController extends Controller
 
         $filtered = $filtered->values();
         $page = $request->integer('page', 1);
+        $perPage = PorPagina::desde($request, self::PER_PAGE);
 
         $paginated = new LengthAwarePaginator(
-            $filtered->forPage($page, self::PER_PAGE),
+            $filtered->forPage($page, $perPage),
             $filtered->count(),
-            self::PER_PAGE,
+            $perPage,
             $page,
             ['path' => $request->url(), 'query' => $request->query()]
         );
 
         return view('products', [
             'products' => $paginated,
+            'perPage' => $perPage,
             'buscar' => $buscar,
             'empresa' => $empresa,
             'estado' => $estado,

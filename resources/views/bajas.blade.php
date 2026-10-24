@@ -21,12 +21,15 @@
                         </p>
 
                         <form method="GET" action="{{ route('bajas') }}" class="filtros-barra">
+                            <input type="hidden" name="por_pagina" value="{{ $perPage }}">
                             <input type="text" name="buscar" value="{{ $buscar }}" class="form-control filtro-buscar" placeholder="Buscar por código o nombre..." autocomplete="off">
                             <button type="submit" class="btn btn-primary">Buscar</button>
                             @if($buscar !== '')
                                 <a href="{{ route('bajas') }}" class="btn btn-outline-secondary">Limpiar</a>
                             @endif
                         </form>
+
+                        <x-por-pagina :actual="$perPage" />
 
                         @if($bajas->isEmpty())
                             <p class="mb-0">{{ $buscar !== '' ? 'No se encontraron bajas con esa búsqueda.' : 'No hay productos dados de baja.' }}</p>

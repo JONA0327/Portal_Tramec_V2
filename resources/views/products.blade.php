@@ -50,6 +50,7 @@
                             {{-- Avanzado: empresa + estado + palabras (en cualquier orden); busca solo al
                                  pulsar "Buscar" o Enter. --}}
                             <form method="GET" action="{{ route('products') }}" class="filtros-barra">
+                                <input type="hidden" name="por_pagina" value="{{ $perPage }}">
                                 <select name="empresa" class="form-control" aria-label="Empresa">
                                     <option value="">Todas las empresas</option>
                                     @foreach($empresas as $empresaOption)
@@ -78,6 +79,8 @@
                                     <a href="{{ route('products') }}" class="btn btn-outline-secondary">Limpiar</a>
                                 @endif
                             </form>
+
+                        <x-por-pagina :actual="$perPage" />
 
                         @if($products->isEmpty())
                             <p class="mb-0">

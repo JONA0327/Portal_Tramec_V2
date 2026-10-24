@@ -111,6 +111,10 @@ class PriceRulesController extends Controller
             'usuarios.*' => ['integer', 'exists:users,id'],
         ]);
 
+        if ($data['tipo'] === 'aumento' && (float) $data['porcentaje'] >= 100) {
+            throw \Illuminate\Validation\ValidationException::withMessages(['porcentaje' => 'Un aumento debe ser menor a 100 % (se calcula como precio ÷ (1 − %)).']);
+        }
+
         $data['activo'] = $request->boolean('activo');
         $data['niveles'] = array_map('intval', $data['niveles'] ?? []) ?: null;
         $data['usuarios'] = array_map('intval', $data['usuarios'] ?? []) ?: null;

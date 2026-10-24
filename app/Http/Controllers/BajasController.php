@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\ProductoBaja;
 use App\Models\User;
 use App\Services\StockService;
+use App\Support\PorPagina;
 use App\Support\Search;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -16,7 +17,7 @@ use Illuminate\View\View;
  */
 class BajasController extends Controller
 {
-    private const PER_PAGE = 25;
+    private const PER_PAGE = 25; // predeterminado; el usuario puede elegir 10/25/50/100 (ver PorPagina)
 
     public function index(Request $request, StockService $stock): View
     {
@@ -35,16 +36,18 @@ class BajasController extends Controller
             ->values();
 
         $page = max(1, $request->integer('page', 1));
+        $perPage = PorPagina::desde($request, self::PER_PAGE);
         $paginated = new \Illuminate\Pagination\LengthAwarePaginator(
-            $bajas->forPage($page, self::PER_PAGE),
+            $bajas->forPage($page, $perPage),
             $bajas->count(),
-            self::PER_PAGE,
+            $perPage,
             $page,
             ['path' => $request->url(), 'query' => $request->query()]
         );
 
         return view('bajas', [
             'bajas' => $paginated,
+            'perPage' => $perPage,
             'buscar' => $buscar,
             'usuarios' => User::whereIn('id', $paginated->pluck('dado_de_baja_por')->filter())->get()->keyBy('id'),
         ]);

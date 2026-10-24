@@ -20,6 +20,7 @@ use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use App\Support\PorPagina;
 use App\Support\Search;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
@@ -40,7 +41,7 @@ use Illuminate\View\View;
  */
 class ExistenciasController extends Controller
 {
-    private const PER_PAGE = 20;
+    private const PER_PAGE = 25; // predeterminado; el usuario puede elegir 10/25/50/100 (ver PorPagina)
 
     public function index(Request $request, StockLevelService $stockLevels, StockService $stock, PriceAdjuster $adjuster): View
     {
@@ -219,17 +220,19 @@ class ExistenciasController extends Controller
         }
 
         $page = $request->integer('page', 1);
+        $perPage = PorPagina::desde($request, self::PER_PAGE);
 
         $paginated = new LengthAwarePaginator(
-            $filtered->forPage($page, self::PER_PAGE),
+            $filtered->forPage($page, $perPage),
             $filtered->count(),
-            self::PER_PAGE,
+            $perPage,
             $page,
             ['path' => $request->url(), 'query' => $request->query()]
         );
 
         return view('existencias', [
             'levels' => $paginated,
+            'perPage' => $perPage,
             'agrupar' => $agrupar,
             'buscar' => $buscar,
             'empresa' => $empresa,

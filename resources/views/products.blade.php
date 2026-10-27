@@ -73,13 +73,12 @@
                                     <option value="__sin" @selected($clasificacion === '__sin')>Sin clasificación</option>
                                 </select>
                                 <input type="text" name="buscar" id="buscar-input" value="{{ $buscar }}" class="form-control filtro-buscar"
-                                    placeholder="Palabras del código o descripción..." autocomplete="off">
+                                    placeholder="Buscar por código o descripción..." autocomplete="off">
                                 <button type="submit" class="btn btn-primary">Buscar</button>
-                                @if($buscar !== '' || $empresa !== '' || $estado !== '' || $clasificacion !== '')
                                     <a href="{{ route('products') }}" class="btn btn-outline-secondary">Limpiar</a>
-                                @endif
                             </form>
 
+                        <div id="resultados">
                         <x-por-pagina :actual="$perPage" />
 
                         @if($products->isEmpty())
@@ -188,6 +187,7 @@
                                 {{ $products->links('pagination::bootstrap-5') }}
                             </div>
                         @endif
+                        </div>{{-- #resultados --}}
                     </div>
                 </div>
             </div>
@@ -231,5 +231,7 @@
             })();
         </script>
     @endif
+
+    <script src="{{ asset('dash-assets/js/busqueda-en-vivo.js') }}" defer></script>
 
 </x-layouts.dashboard>

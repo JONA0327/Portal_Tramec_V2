@@ -70,7 +70,7 @@
                                     <option value="__sin" @selected($clasificacion === '__sin')>Sin clasificación</option>
                                 </select>
                                 <input type="text" name="buscar" id="buscar-input" value="{{ $buscar }}" class="form-control filtro-buscar"
-                                    placeholder="Palabras del código o descripción..." autocomplete="off">
+                                    placeholder="Buscar por código o descripción..." autocomplete="off">
                                 <label class="filtro-check">
                                     <input type="checkbox" name="agrupar" value="1" @checked($agrupar)>
                                     Agrupar por modelo
@@ -83,9 +83,7 @@
                                     </label>
                                 @endif
                                 <button type="submit" class="btn btn-primary">Buscar</button>
-                                @if($buscar !== '' || $empresa !== '' || $almacen !== '' || $clasificacion !== '' || $estado !== 'con_existencia' || $agrupar)
                                     <a href="{{ route('existencias') }}" class="btn btn-outline-secondary">Limpiar</a>
-                                @endif
                                 @can('admin')
                                     <button type="button" class="btn btn-secondary ml-auto" data-toggle="modal" data-target="#modalExcel">Cargar Excel</button>
                                 @endcan
@@ -122,6 +120,7 @@
                             </div>
                             @endcan
 
+                        <div id="resultados">
                         <x-por-pagina :actual="$perPage" />
 
                         @if($levels->isEmpty())
@@ -252,6 +251,7 @@
                                 {{ $levels->links('pagination::bootstrap-5') }}
                             </div>
                         @endif
+                        </div>{{-- #resultados --}}
                     </div>
                 </div>
             </div>
@@ -369,5 +369,7 @@
             })();
         </script>
     @endif
+
+    <script src="{{ asset('dash-assets/js/busqueda-en-vivo.js') }}" defer></script>
 
 </x-layouts.dashboard>

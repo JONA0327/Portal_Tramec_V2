@@ -63,25 +63,32 @@ class ExistenciasController extends Controller
         $productsByKey = collect($stock->getProducts())
             ->keyBy(fn (array $p) => ($p['empresa_codigo'] ?? 'TRAMEC').':'.$p['id']);
 
-        // Nombres de almacén: en vivo; si servicio-stock no responde, se usa la última copia guardada.
-        try {
-            $warehouseNamesByKey = collect(['tramec', 'omec'])
-                ->flatMap(function (string $empresaLower) {
-                    $almacenes = Http::withToken(config('services.stock.key'))
-                        ->baseUrl(config('services.stock.url'))
-                        ->timeout(20)
-                        ->get("/api/almacenes/{$empresaLower}")
-                        ->throw()
-                        ->json();
+        // Nombres de almacén: casi nunca cambian, así que se piden al servicio como mucho cada 10 minutos (antes
+        // eran 2 llamadas HTTP en CADA carga, ~400 ms, lo que frenaba la búsqueda en vivo). Si servicio-stock no
+        // responde se usa la última copia guardada y se marca como caído.
+        $warehouseNamesByKey = collect(Cache::get('stock_service.warehouse_names', []));
 
-                    return collect($almacenes)->mapWithKeys(fn (array $a) => [
-                        strtoupper($empresaLower).':'.$a['id'] => trim($a['nombre']),
-                    ]);
-                });
-            Cache::forever('stock_service.warehouse_names', $warehouseNamesByKey->all());
-        } catch (ConnectionException|RequestException $e) {
-            StockHealth::down();
-            $warehouseNamesByKey = collect(Cache::get('stock_service.warehouse_names', []));
+        if ($warehouseNamesByKey->isEmpty() || ! Cache::has('stock_service.warehouse_names.vigente')) {
+            try {
+                $warehouseNamesByKey = collect(['tramec', 'omec'])
+                    ->flatMap(function (string $empresaLower) {
+                        $almacenes = Http::withToken(config('services.stock.key'))
+                            ->baseUrl(config('services.stock.url'))
+                            ->timeout(20)
+                            ->get("/api/almacenes/{$empresaLower}")
+                            ->throw()
+                            ->json();
+
+                        return collect($almacenes)->mapWithKeys(fn (array $a) => [
+                            strtoupper($empresaLower).':'.$a['id'] => trim($a['nombre']),
+                        ]);
+                    });
+                Cache::forever('stock_service.warehouse_names', $warehouseNamesByKey->all());
+                Cache::put('stock_service.warehouse_names.vigente', true, now()->addMinutes(10));
+            } catch (ConnectionException|RequestException $e) {
+                StockHealth::down();
+                Cache::put('stock_service.warehouse_names.vigente', true, now()->addMinute()); // no reintentar en cada tecla
+            }
         }
 
         // alias > nombre local > nombre crudo del ERP (ej. el almacén 0 de TRAMEC es "(Ninguno)" en

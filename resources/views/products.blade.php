@@ -10,6 +10,7 @@
         // Columnas de precio según el nivel del usuario (ver User::columnasPrecio()); acciones solo administrador.
         $columnasPrecio = auth()->user()->columnasPrecio();
         $esAdmin = auth()->user()->isAdmin();
+        $puedeCopiar = auth()->user()->puedeCopiarPrecios();
         $verId = in_array((int) auth()->user()->level, [0, 1, 7], true); // v1: el ID del ERP solo para los niveles internos
     @endphp
 
@@ -128,9 +129,19 @@
                                                 <td class="col-nombre">{{ $row['descripcion'] }}</td>
                                                 <td>{{ $row['empresa'] ?? '-' }}</td>
                                                 @foreach($columnasPrecio as $key => $label)
-                                                    <td class="text-nowrap {{ isset($row['originales'][$key]) ? 'precio-ajustado' : '' }}"
-                                                        @isset($row['originales'][$key]) title="Precio original: {{ number_format($row['originales'][$key], 2, '.', ',') }} (ajustado por regla)" style="box-shadow: inset 3px 0 0 #0dcaf0;" @endisset>
-                                                        {{ $row['precios'][$key] !== null ? number_format($row['precios'][$key], 2, '.', ',').' '.$row['moneda'] : '-' }}
+                                                    <td class="text-nowrap {{ $row['precios'][$key] !== null && $puedeCopiar ? 'copy-price-cell' : '' }} {{ isset($row['originales'][$key]) ? 'precio-ajustado' : '' }}"
+                                                        @isset($row['originales'][$key]) title="Precio original: {{ number_format($row['originales'][$key], 2, '.', ',') }} (ajustado por regla)" @endisset
+                                                        data-modelo="{{ $row['codigo'] }}" data-descripcion="{{ $row['descripcion'] }}">
+                                                        @if($row['precios'][$key] !== null)
+                                                            {{ number_format($row['precios'][$key], 2, '.', ',') }}&nbsp;{{ $row['moneda'] }}
+                                                            @if($puedeCopiar)
+                                                                <button type="button" class="copy-price-btn" title="Copiar Código, Descripción y {{ $label }}">
+                                                                    <i class="fas fa-copy" aria-hidden="true"></i>
+                                                                </button>
+                                                            @endif
+                                                        @else
+                                                            -
+                                                        @endif
                                                     </td>
                                                 @endforeach
                                                 @if($esAdmin)
@@ -232,6 +243,7 @@
         </script>
     @endif
 
+    @include('partials.copy-price')
     <script src="{{ asset('dash-assets/js/busqueda-en-vivo.js') }}" defer></script>
 
 </x-layouts.dashboard>

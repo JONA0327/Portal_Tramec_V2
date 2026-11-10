@@ -306,7 +306,9 @@ class CotizadorController extends Controller
             'usuario_final' => $local?->price5,
             'precio_lista' => $local?->list_price,
         ];
-        [$ajustados] = $adjuster->adjustAll(array_intersect_key($base, array_flip($columnas)), $codigo, (string) $descripcion, $local);
+        [$ajustados, , $temporales] = $adjuster->adjustAll(array_intersect_key($base, array_flip($columnas)), $codigo, (string) $descripcion, $local);
+        // Precio temporal: se cotiza el temporal (quien lo ve en verde junto al original también cotiza el verde).
+        $ajustados = $temporales + $ajustados;
 
         return [
             'empresa' => $empresa,

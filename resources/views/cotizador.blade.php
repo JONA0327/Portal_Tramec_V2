@@ -29,7 +29,7 @@
                                 </div>
                                 <div class="col-6 col-lg-3 mb-3">
                                     <label class="form-label" for="folio">Folio</label>
-                                    <input type="text" id="folio" name="folio" class="form-control" value="{{ old('folio', $c->folio) }}" maxlength="60" placeholder="Ej.: AM-1194">
+                                    <input type="text" id="folio" class="form-control" value="{{ $c->folio }}" placeholder="Automático al descargar el PDF" readonly>folio) }}" maxlength="60" placeholder="Ej.: AM-1194">
                                 </div>
                                 <div class="col-6 col-lg-3 mb-3">
                                     <label class="form-label" for="vigencia">Vigencia</label>

@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
@@ -22,6 +23,26 @@ class Cotizacion extends Model
     protected function casts(): array
     {
         return ['fecha' => 'date', 'descuento_pct' => 'float', 'iva_pct' => 'float'];
+    }
+
+    /** Folio consecutivo (COT-00001, COT-00002...). Se asigna una sola vez, al descargar el primer PDF; el contador no se reinicia. */
+    public function asignarFolio(): string
+    {
+        if ((string) $this->folio !== '') {
+            return $this->folio;
+        }
+
+        $folio = DB::transaction(function () {
+            DB::table('folio_secuencias')->insertOrIgnore(['serie' => 'COT', 'ultimo' => 0]);
+            $n = DB::table('folio_secuencias')->where('serie', 'COT')->lockForUpdate()->value('ultimo') + 1;
+            DB::table('folio_secuencias')->where('serie', 'COT')->update(['ultimo' => $n]);
+
+            return sprintf('COT-%05d', $n);
+        });
+
+        $this->update(['folio' => $folio]);
+
+        return $folio;
     }
 
     public function items(): HasMany

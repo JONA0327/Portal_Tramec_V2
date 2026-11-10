@@ -98,7 +98,7 @@ class CotizadorController extends Controller
             return redirect()->route('cotizador')->withErrors(['moneda' => "No hay renglones en {$moneda}."]);
         }
 
-        $folio = (string) $cotizacion->folio;
+        $folio = $cotizacion->asignarFolio();
         // Con más de una moneda cada PDF es una cotización distinta: el folio lleva el sufijo de la moneda.
         $folioPdf = count($grupos) > 1 ? ($folio !== '' ? "{$folio}-{$moneda}" : $moneda) : $folio;
 
@@ -148,7 +148,6 @@ class CotizadorController extends Controller
 
         $data = $request->validate([
             'fecha' => ['required', 'date'],
-            'folio' => ['nullable', 'string', 'max:60'],
             'vigencia' => ['nullable', 'string', 'max:60'],
             'cliente_empresa' => ['nullable', 'string', 'max:191'],
             'cliente_atencion' => ['nullable', 'string', 'max:191'],

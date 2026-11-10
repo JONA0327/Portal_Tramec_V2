@@ -45,22 +45,6 @@
                                     </div>
                                 </div>
 
-                                <div class="row">
-                                    <div class="col-md-8 mb-3">
-                                        <label class="form-label" for="buscar">Productos a los que aplica</label>
-                                        <input type="text" id="buscar" name="buscar" value="{{ old('buscar', $rule->buscar) }}" class="form-control" maxlength="255" placeholder="Ej.: 25HP, C2000, DELTA   (vacío = todos los productos)" autocomplete="off">
-                                        <div class="form-text">Separá varios términos con coma: coincide si el producto contiene cualquiera de ellos.</div>
-                                    </div>
-                                    <div class="col-md-4 mb-3">
-                                        <label class="form-label" for="campo">Buscar en</label>
-                                        <select id="campo" name="campo" class="form-control">
-                                            <option value="ambos" @selected(old('campo', $rule->campo) === 'ambos')>Código o descripción</option>
-                                            <option value="codigo" @selected(old('campo', $rule->campo) === 'codigo')>Solo código</option>
-                                            <option value="nombre" @selected(old('campo', $rule->campo) === 'nombre')>Solo descripción</option>
-                                        </select>
-                                    </div>
-                                </div>
-
                                 <div class="mb-3">
                                     <label class="form-label d-block">Precios que se modifican</label>
                                     @php $columnas = old('columnas', $rule->columnas ?? []); @endphp
@@ -88,10 +72,19 @@
                                 <div class="col-lg-6">
                                 <div id="preview" class="border rounded p-2 mb-3" aria-live="polite">
                                     <div id="preview-resumen" class="mb-2">Calculando coincidencias…</div>
+                                    <div class="d-flex flex-wrap align-items-center mb-2" style="gap: 8px;">
+                                        <input type="search" id="buscar" name="buscar" value="{{ old('buscar', $rule->buscar) }}" class="form-control filtro-regla" style="flex: 1 1 220px; min-width: 0;" maxlength="255"
+                                            placeholder="Buscar productos: 25HP, C2000, DELTA… (vacío = todos)" autocomplete="off" aria-label="Buscar productos a los que aplica la regla">
+                                        <select id="campo" name="campo" class="form-control" style="flex: 0 1 190px;" aria-label="Buscar en">
+                                            <option value="ambos" @selected(old('campo', $rule->campo) === 'ambos')>Código o descripción</option>
+                                            <option value="codigo" @selected(old('campo', $rule->campo) === 'codigo')>Solo código</option>
+                                            <option value="nombre" @selected(old('campo', $rule->campo) === 'nombre')>Solo descripción</option>
+                                        </select>
+                                    </div>
                                     <div id="preview-controles" class="d-flex flex-wrap align-items-center mb-2" style="gap: 8px;" hidden>
-                                        <input type="search" id="preview-filtro" class="form-control form-control-sm" style="max-width: 240px;" placeholder="Buscar en la lista…" autocomplete="off">
                                         <button type="button" class="btn btn-sm btn-outline-secondary" id="marcar-todos">Marcar todos</button>
                                         <button type="button" class="btn btn-sm btn-outline-secondary" id="marcar-ninguno">Quitar todos</button>
+                                        <span class="form-text mb-0">Varios términos separados por coma.</span>
                                     </div>
                                     <div id="preview-lista" class="lista-casillas" style="max-height: 380px; overflow-y: auto;"></div>
                                     <div class="form-text">Marcá los productos a los que aplica la regla. Si no marcás ninguno, aplica a todos los de esta lista.</div>
@@ -162,7 +155,7 @@
         (function () {
             var buscar = document.getElementById('buscar'), campo = document.getElementById('campo'),
                 resumen = document.getElementById('preview-resumen'), lista = document.getElementById('preview-lista'),
-                controles = document.getElementById('preview-controles'), filtro = document.getElementById('preview-filtro'),
+                controles = document.getElementById('preview-controles'),
                 form = buscar.form, todos = null, items = [], loaded = false, truncado = '',
                 elegidos = new Set(@json(array_values(old('incluidos', $rule->incluidos ?? []))));
 
@@ -177,10 +170,9 @@
             }
 
             function render() {
-                var q = filtro.value;
                 lista.innerHTML = items.map(function (i) {
                     var texto = (i.c + ' ' + i.n).toLowerCase();
-                    return '<label data-t="' + esc(texto) + '"' + (q.trim() && !coincide(texto, q) ? ' hidden' : '') + '>'
+                    return '<label data-t="' + esc(texto) + '">'
                         + '<input type="checkbox" data-c="' + esc(i.c.toUpperCase()) + '"' + (elegidos.has(i.c.toUpperCase()) ? ' checked' : '') + '>'
                         + '<span>' + esc(i.c) + (i.n && i.n !== i.c ? ' — ' + esc(i.n) : '') + '</span></label>';
                 }).join('');
@@ -232,10 +224,6 @@
             }
             document.getElementById('marcar-todos').addEventListener('click', function () { marcarVisibles(true); });
             document.getElementById('marcar-ninguno').addEventListener('click', function () { marcarVisibles(false); });
-            filtro.addEventListener('input', function () {
-                var q = this.value;
-                Array.prototype.forEach.call(lista.children, function (d) { d.hidden = q.trim() !== '' && !coincide(d.getAttribute('data-t'), q); });
-            });
 
             // Al enviar: cada producto marcado de la lista actual viaja como incluidos[].
             form.addEventListener('submit', function () {

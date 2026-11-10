@@ -66,11 +66,23 @@
         recalcular();
     });
 
-    // "Guardar cambios" solo se activa cuando se modifica algo
-    var guardar = document.getElementById('btn-guardar');
-    function modificado() { if (guardar) { guardar.disabled = false; } }
+    // Guardado automático: poco después de cada cambio se guarda en el servidor (sin recargar la página).
+    var pendiente = null;
+    function guardarAhora() {
+        pendiente = null;
+        if (!window.fetch) { return; }
+        fetch(form.getAttribute('action'), {
+            method: 'POST', body: new FormData(form), credentials: 'same-origin',
+            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
+        }).catch(function () { /* sin red: se guarda al descargar el PDF */ });
+    }
+    function modificado() { clearTimeout(pendiente); pendiente = setTimeout(guardarAhora, 700); }
     form.addEventListener('input', modificado);
     form.addEventListener('change', modificado);
+    // si se sale de la página con un cambio sin guardar, se manda en ese momento
+    window.addEventListener('pagehide', function () {
+        if (pendiente !== null && navigator.sendBeacon) { clearTimeout(pendiente); navigator.sendBeacon(form.getAttribute('action'), new FormData(form)); }
+    });
 
     // tocar el precio de un renglón lo marca como "manual" (ya no sigue a la columna)
     form.addEventListener('input', function (e) {

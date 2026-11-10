@@ -205,7 +205,6 @@
                             @if($c->items->isNotEmpty())
                             <div class="d-flex flex-wrap align-items-center" style="gap: 8px;">
                                 <button type="button" class="btn btn-primary" data-paso="datos" {{ $errors->any() ? 'hidden' : '' }}>Generar cotización →</button>
-                                <button type="submit" class="btn btn-secondary" id="btn-guardar" disabled>Guardar cambios</button>
                                 <button type="submit" form="form-vaciar" class="btn btn-limpiar">Vaciar carrito / cotización nueva</button>
                             </div>
                             @endif

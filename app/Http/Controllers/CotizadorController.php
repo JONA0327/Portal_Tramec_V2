@@ -81,9 +81,13 @@ class CotizadorController extends Controller
         return back()->with('status', $msg.'. Ábrelo en Cotizador.');
     }
 
-    public function guardar(Request $request): RedirectResponse
+    public function guardar(Request $request): RedirectResponse|\Illuminate\Http\JsonResponse
     {
-        $cotizacion = $this->guardarCambios($request);
+        $this->guardarCambios($request);
+
+        if ($request->ajax()) {
+            return response()->json(['ok' => true]); // guardado automático desde la página
+        }
 
         return redirect()->route('cotizador')->with('status', 'Cotización guardada.');
     }

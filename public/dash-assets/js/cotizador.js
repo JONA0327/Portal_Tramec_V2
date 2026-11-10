@@ -112,7 +112,9 @@
     form.addEventListener('submit', function (e) {
         var b = e.submitter;
         if (b && /\/cotizador\/pdf\//.test(b.getAttribute('formaction') || '')) {
-            setTimeout(function () { window.location.href = form.getAttribute('data-inicio') || window.location.pathname; }, 2500);
+            // Con una sola moneda el carrito queda vacío al descargar: se regresa a Existencias; con varias, se recarga para ver lo que falta.
+            var vacio = parseInt(form.getAttribute('data-grupos'), 10) <= 1;
+            setTimeout(function () { window.location.href = vacio ? form.getAttribute('data-si-vacio') : window.location.pathname; }, 2500);
         }
     });
 

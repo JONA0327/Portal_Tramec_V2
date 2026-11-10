@@ -18,7 +18,7 @@
                             <div class="alert alert-danger"><ul class="mb-0">@foreach($errors->all() as $e)<li>{{ $e }}</li>@endforeach</ul></div>
                         @endif
 
-                        <form id="form-cot" method="POST" action="{{ route('cotizador.guardar') }}">
+                        <form id="form-cot" method="POST" action="{{ route('cotizador.guardar') }}" data-grupos="{{ count($grupos) }}" data-si-vacio="{{ route('existencias') }}">
                             @csrf
 
                             <div id="paso-carrito" {{ $errors->any() ? 'hidden' : '' }}>

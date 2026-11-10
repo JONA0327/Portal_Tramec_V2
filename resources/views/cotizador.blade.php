@@ -177,9 +177,11 @@
                                 </div>
                             </div>
 
+                            @if($c->items->isNotEmpty())
                             <div class="d-flex flex-wrap" style="gap: 8px;">
                                 <button type="submit" class="btn btn-secondary">Guardar cambios</button>
                             </div>
+                            @endif
                         </form>
 
                         @if($c->items->isNotEmpty())

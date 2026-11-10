@@ -167,6 +167,7 @@ class CotizadorController extends Controller
             'items.*.precio' => ['nullable', 'numeric', 'min:0', 'max:100000000'],
             'items.*.unidad' => ['nullable', 'string', 'max:20'],
             'items.*.tiempo_entrega' => ['nullable', 'string', 'max:100'],
+            'items.*.canal' => ['nullable', Rule::in($columnas)],
         ]);
 
         $cotizacion->update(collect($data)->except('items')->map(fn ($v) => $v ?? '')->all() + [
@@ -182,7 +183,8 @@ class CotizadorController extends Controller
             }
 
             // Si el precio capturado es igual al de la columna elegida no hay precio manual (así sigue a la columna).
-            $base = (float) ($item->precios[$cotizacion->precio_base] ?? 0);
+            $canal = ($f['canal'] ?? '') ?: $cotizacion->precio_base;
+            $base = (float) ($item->precios[$canal] ?? 0);
             $precio = ($f['precio'] ?? '') === '' || $f['precio'] === null ? null : (float) $f['precio'];
             $manual = ($precio === null || abs($precio - $base) < 0.005) ? null : $precio;
 
@@ -192,6 +194,7 @@ class CotizadorController extends Controller
                 'unidad' => ($f['unidad'] ?? '') ?: 'PZA.',
                 'tiempo_entrega' => $f['tiempo_entrega'] ?? null,
                 'precio_manual' => $manual,
+                'canal' => $canal,
             ]);
         }
 

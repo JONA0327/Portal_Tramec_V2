@@ -39,16 +39,38 @@
     }
 
     // al cambiar la columna de precios, los renglones sin precio editado a mano toman el de esa columna
+    function precioDe(f, col) {
+        var precios = {};
+        try { precios = JSON.parse(f.getAttribute('data-precios') || '{}'); } catch (e) { precios = {}; }
+        return num(precios[col]).toFixed(2);
+    }
+
+    // el canal general se lo pone a todos los renglones
     form.querySelector('#precio_base').addEventListener('change', function () {
         var col = this.value;
         Array.prototype.forEach.call(form.querySelectorAll('.cot-fila'), function (f) {
+            f.querySelector('.cot-canal').value = col;
             if (f.getAttribute('data-manual') === '1') { return; }
-            var precios = {};
-            try { precios = JSON.parse(f.getAttribute('data-precios') || '{}'); } catch (e) { precios = {}; }
-            f.querySelector('.cot-precio').value = num(precios[col]).toFixed(2);
+            f.querySelector('.cot-precio').value = precioDe(f, col);
         });
         recalcular();
     });
+
+    // el canal de un renglón solo cambia ese renglón (y reemplaza el precio que se hubiera tecleado)
+    form.addEventListener('change', function (e) {
+        var t = e.target;
+        if (!t.classList || !t.classList.contains('cot-canal')) { return; }
+        var f = t.closest('.cot-fila');
+        f.setAttribute('data-manual', '0');
+        f.querySelector('.cot-precio').value = precioDe(f, t.value);
+        recalcular();
+    });
+
+    // "Guardar cambios" solo se activa cuando se modifica algo
+    var guardar = document.getElementById('btn-guardar');
+    function modificado() { if (guardar) { guardar.disabled = false; } }
+    form.addEventListener('input', modificado);
+    form.addEventListener('change', modificado);
 
     // tocar el precio de un renglón lo marca como "manual" (ya no sigue a la columna)
     form.addEventListener('input', function (e) {
@@ -75,6 +97,7 @@
         var datos = b.getAttribute('data-paso') === 'datos';
         document.getElementById('paso-carrito').hidden = datos;
         document.getElementById('paso-datos').hidden = !datos;
+        Array.prototype.forEach.call(form.querySelectorAll('[data-paso="datos"]'), function (g) { g.hidden = datos; });
         window.scrollTo(0, 0);
     });
 })();

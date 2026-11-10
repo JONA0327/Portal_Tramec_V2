@@ -59,6 +59,7 @@
                                                     <th style="width: 90px;">Cant.</th>
                                                     <th style="width: 80px;">Uds.</th>
                                                     <th style="width: 150px;">Tiempo de entrega</th>
+                                                    <th style="width: 150px;">Canal</th>
                                                     <th style="width: 130px;">Precio unitario</th>
                                                     <th class="text-end" style="width: 130px;">Importe</th>
                                                     <th style="width: 44px;"></th>
@@ -66,13 +67,20 @@
                                             </thead>
                                             <tbody>
                                                 @foreach($g['items'] as $it)
-                                                    @php $pu = $it->precioUnitario(old('precio_base', $c->precio_base)); @endphp
+                                                    @php $pu = $it->precioUnitario(old('precio_base', $c->precio_base)); $canalFila = old("items.{$it->id}.canal", $it->canal ?: old('precio_base', $c->precio_base)); @endphp
                                                     <tr class="cot-fila" data-moneda="{{ $moneda }}" data-precios='@json($it->precios ?? [])' data-manual="{{ $it->precio_manual !== null ? 1 : 0 }}">
                                                         <td class="text-nowrap"><strong>{{ $it->codigo }}</strong></td>
                                                         <td><input type="text" name="items[{{ $it->id }}][descripcion]" value="{{ old("items.{$it->id}.descripcion", $it->descripcion) }}" class="form-control" maxlength="500"></td>
                                                         <td><input type="number" name="items[{{ $it->id }}][cantidad]" value="{{ old("items.{$it->id}.cantidad", rtrim(rtrim(number_format($it->cantidad, 2, '.', ''), '0'), '.')) }}" class="form-control cot-cant" min="0.01" step="any" required></td>
                                                         <td><input type="text" name="items[{{ $it->id }}][unidad]" value="{{ old("items.{$it->id}.unidad", $it->unidad) }}" class="form-control" maxlength="20"></td>
                                                         <td><input type="text" name="items[{{ $it->id }}][tiempo_entrega]" value="{{ old("items.{$it->id}.tiempo_entrega", $it->tiempo_entrega) }}" class="form-control" maxlength="100"></td>
+                                                        <td>
+                                                            <select name="items[{{ $it->id }}][canal]" class="form-control cot-canal" aria-label="Canal de {{ $it->codigo }}">
+                                                                @foreach($columnas as $clave => $etiqueta)
+                                                                    <option value="{{ $clave }}" @selected($canalFila === $clave)>{{ $etiqueta }}</option>
+                                                                @endforeach
+                                                            </select>
+                                                        </td>
                                                         <td>
                                                             <input type="number" name="items[{{ $it->id }}][precio]" value="{{ old("items.{$it->id}.precio", number_format($pu, 2, '.', '')) }}" class="form-control cot-precio {{ $pu <= 0 ? 'is-invalid' : '' }}" min="0" step="0.01">
                                                             @if($pu <= 0)<small class="text-danger sin-precio">Sin precio</small>@endif
@@ -98,10 +106,6 @@
                                     </div>
                                 </div>
                             @endforeach
-
-                                @if($c->items->isNotEmpty())
-                                    <button type="button" class="btn btn-primary" data-paso="datos">Generar cotización →</button>
-                                @endif
                             </div>
 
                             <div id="paso-datos" {{ $errors->any() ? '' : 'hidden' }}>
@@ -185,18 +189,19 @@
                             </div>
 
                             @if($c->items->isNotEmpty())
-                            <div class="d-flex flex-wrap" style="gap: 8px;">
-                                <button type="submit" class="btn btn-secondary">Guardar cambios</button>
+                            <div class="d-flex flex-wrap align-items-center" style="gap: 8px;">
+                                <button type="button" class="btn btn-primary" data-paso="datos" {{ $errors->any() ? 'hidden' : '' }}>Generar cotización →</button>
+                                <button type="submit" class="btn btn-secondary" id="btn-guardar" disabled>Guardar cambios</button>
+                                <button type="submit" form="form-vaciar" class="btn btn-limpiar">Vaciar carrito / cotización nueva</button>
                             </div>
                             @endif
                         </form>
 
                         @if($c->items->isNotEmpty())
-                            <form method="POST" action="{{ route('cotizador.vaciar') }}" class="mt-3"
+                            <form id="form-vaciar" method="POST" action="{{ route('cotizador.vaciar') }}"
                                 onsubmit="return confirm('¿Vaciar el carrito y empezar una cotización nueva? Se pierden los renglones y los datos capturados.')">
                                 @csrf
                                 @method('DELETE')
-                                <button type="submit" class="btn btn-sm btn-limpiar">Vaciar carrito / cotización nueva</button>
                             </form>
                         @endif
                     </div>

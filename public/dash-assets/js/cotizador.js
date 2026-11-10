@@ -90,6 +90,12 @@
 
     recalcular();
 
+    // Condiciones de pago: la lista llena el texto, que se puede seguir modificando a mano.
+    var lista = document.getElementById('condiciones_lista'), texto = document.getElementById('condiciones_pago');
+    if (lista && texto) {
+        lista.addEventListener('change', function () { if (lista.value) { texto.value = lista.value; } texto.focus(); });
+    }
+
     // Dos pasos en la misma página: primero el carrito, luego los datos de la cotización y los PDF.
     form.addEventListener('click', function (e) {
         var b = e.target.closest ? e.target.closest('[data-paso]') : null;

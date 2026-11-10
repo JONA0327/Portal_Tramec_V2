@@ -126,7 +126,14 @@
                                 </div>
                                 <div class="col-6 col-lg-3 mb-3">
                                     <label class="form-label" for="condiciones_pago">Condiciones de pago</label>
-                                    <input type="text" id="condiciones_pago" name="condiciones_pago" class="form-control" value="{{ old('condiciones_pago', $c->condiciones_pago) }}" maxlength="191">
+                                    @php $cp = old('condiciones_pago', $c->condiciones_pago); @endphp
+                                    <select id="condiciones_lista" class="form-control mb-1" aria-label="Elegir condición de pago">
+                                        <option value="">Otra (escribirla)</option>
+                                        @foreach(\App\Models\Cotizacion::CONDICIONES_PAGO as $op)
+                                            <option value="{{ $op }}" @selected(rtrim((string) $cp, '. ') === $op)>{{ $op }}</option>
+                                        @endforeach
+                                    </select>
+                                    <input type="text" id="condiciones_pago" name="condiciones_pago" class="form-control" value="{{ $cp }}" maxlength="191" aria-label="Condiciones de pago (se puede modificar)">
                                 </div>
                             </div>
 

@@ -13,6 +13,8 @@ class Cotizacion extends Model
 {
     protected $table = 'cotizaciones';
 
+    public const CONDICIONES_PAGO = ['CONTADO', '30 DIAS', '15 DIAS', '50% ANTICIPO 50% CONTRA ENTREGA', '50% ANTICIPO 50% AVISO DE EMBARQUE', '50% ANTICIPO 50% A CREDITO'];
+
     public const TERMINOS_PREDETERMINADOS = "* Los precios son expresados en el tipo de moneda indicado.\n* Tiempo de entrega sobre previa venta.\n* Precios sujetos a cambio sin previo aviso debido a la fluctuación del mercado.";
 
     protected $fillable = [
@@ -56,7 +58,7 @@ class Cotizacion extends Model
         return static::firstOrCreate(['user_id' => $user->id], [
             'fecha' => now()->toDateString(),
             'vigencia' => '30 Días.',
-            'condiciones_pago' => 'CONTADO.',
+            'condiciones_pago' => 'CONTADO',
             'terminos' => self::TERMINOS_PREDETERMINADOS,
             'emisor' => trim($user->first_name.' '.$user->last_name),
             'emisor_email' => $user->email,

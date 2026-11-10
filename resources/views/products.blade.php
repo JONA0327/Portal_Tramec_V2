@@ -271,9 +271,9 @@
     @endif
 
     @include('partials.copy-price')
-    <script src="{{ asset('dash-assets/js/busqueda-en-vivo.js') }}" defer></script>
+    <script src="{{ asset('dash-assets/js/busqueda-en-vivo.js').'?v='.filemtime(public_path('dash-assets/js/busqueda-en-vivo.js')) }}" defer></script>
     @if($seleccion)
-        <script src="{{ asset('dash-assets/js/seleccion-masiva.js') }}" defer></script>
+        <script src="{{ asset('dash-assets/js/seleccion-masiva.js').'?v='.filemtime(public_path('dash-assets/js/seleccion-masiva.js')) }}" defer></script>
     @endif
 
 </x-layouts.dashboard>

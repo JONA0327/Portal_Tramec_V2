@@ -223,6 +223,6 @@
         </div>
     </div>
 
-    <script src="{{ asset('dash-assets/js/cotizador.js') }}" defer></script>
+    <script src="{{ asset('dash-assets/js/cotizador.js').'?v='.filemtime(public_path('dash-assets/js/cotizador.js')) }}" defer></script>
 
 </x-layouts.dashboard>

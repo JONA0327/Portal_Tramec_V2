@@ -98,3 +98,19 @@
         }
     });
 })();
+
+/*
+ * Casillas de opciones ("Agrupar por modelo", "Ver ocultos"): al marcarlas o desmarcarlas se aplican solas, sin
+ * pulsar Buscar. El servidor recuerda la elección (por usuario) hasta que se cambie a mano.
+ */
+(function () {
+    'use strict';
+
+    var form = document.querySelector('form.filtros-barra');
+    if (!form) { return; }
+
+    form.addEventListener('change', function (e) {
+        var t = e.target;
+        if (t && t.type === 'checkbox' && t.closest('.filtros-opciones')) { form.submit(); }
+    });
+})();

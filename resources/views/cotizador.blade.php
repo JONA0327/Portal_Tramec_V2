@@ -188,12 +188,12 @@
                                 <textarea id="terminos" name="terminos" class="form-control" rows="5" maxlength="3000" style="height: auto;">{{ old('terminos', $c->terminos) }}</textarea>
                             </div>
 
-                                <div class="form-check mb-2">
-                                    <label class="filtro-check">
-                                        <input type="checkbox" name="guardar_historial" value="1" checked>
-                                        Guardar esta cotización en el historial
+                                <div class="mb-3">
+                                    <label class="mb-1" style="display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none;">
+                                        <input type="checkbox" name="guardar_historial" value="1" checked style="flex: none; width: 16px; height: 16px; min-width: 16px; padding: 0; margin: 0;">
+                                        <span>Guardar esta cotización en el historial</span>
                                     </label>
-                                    <div class="form-text">Si no la marcas, solo se descarga el PDF. En ambos casos el carrito se vacía al descargar.</div>
+                                    <div class="form-text mt-0">Si no la marcas, solo se descarga el PDF. En ambos casos el carrito se vacía al descargar.</div>
                                 </div>
                                 <div class="d-flex flex-wrap mb-3" style="gap: 8px;">
                                     @foreach($grupos as $moneda => $g)

@@ -46,9 +46,9 @@ class PriceRulesController extends Controller
         return view('precios.index', ['usuariosPorId' => User::whereIn('id', $rules->pluck('usuarios')->merge($rules->pluck('usuarios_excluidos'))->flatten()->filter()->unique())->get()->keyBy('id'), 'rules' => $rules, 'counts' => $counts, 'totalCatalog' => $catalog->count()]);
     }
 
-    public function create(): View
+    public function create(StockService $stock): View
     {
-        return view('precios.form', ['users' => User::orderBy('first_name')->get(['id', 'first_name', 'last_name', 'email']), 'rule' => new PriceRule([
+        return view('precios.form', ['catalogo' => $this->previewItems($stock), 'users' => User::orderBy('first_name')->get(['id', 'first_name', 'last_name', 'email']), 'rule' => new PriceRule([
             'tipo' => 'descuento',
             'campo' => 'ambos',
             'columnas' => array_keys(PriceRule::COLUMNAS),
@@ -63,9 +63,9 @@ class PriceRulesController extends Controller
         return redirect()->route('price-rules.index')->with('status', 'Regla creada.');
     }
 
-    public function edit(PriceRule $priceRule): View
+    public function edit(PriceRule $priceRule, StockService $stock): View
     {
-        return view('precios.form', ['users' => User::orderBy('first_name')->get(['id', 'first_name', 'last_name', 'email']), 'rule' => $priceRule]);
+        return view('precios.form', ['catalogo' => $this->previewItems($stock), 'users' => User::orderBy('first_name')->get(['id', 'first_name', 'last_name', 'email']), 'rule' => $priceRule]);
     }
 
     public function update(Request $request, PriceRule $priceRule): RedirectResponse
@@ -92,9 +92,18 @@ class PriceRulesController extends Controller
     /** Qué productos del catálogo coinciden con el filtro, antes de guardar la regla. */
     public function preview(Request $request, StockService $stock): JsonResponse
     {
+        return response()->json($this->previewItems($stock, (string) $request->query('buscar', ''), (string) $request->query('campo', 'ambos')));
+    }
+
+    /**
+     * Lista para la vista previa del formulario. Va incrustada en la página (create/edit) para no
+     * hacer una segunda petición al entrar: así llega junto con el HTML y comprimida.
+     */
+    private function previewItems(StockService $stock, string $buscar = '', string $campo = 'ambos'): array
+    {
         $probe = new PriceRule([
-            'buscar' => (string) $request->query('buscar', ''),
-            'campo' => in_array($request->query('campo'), ['codigo', 'nombre'], true) ? $request->query('campo') : 'ambos',
+            'buscar' => $buscar,
+            'campo' => in_array($campo, ['codigo', 'nombre'], true) ? $campo : 'ambos',
         ]);
 
         $matches = $this->catalogo($stock)
@@ -103,10 +112,10 @@ class PriceRulesController extends Controller
             ->sortBy(fn (array $p) => strtoupper($p['codigo'] ?? ''))
             ->values();
 
-        return response()->json([
+        return [
             'total' => $matches->count(),
-            'items' => $matches->take(3000)->map(fn (array $p) => ['c' => trim($p['codigo'] ?? '-'), 'n' => $p['nombre'] ?? ''])->all(),
-        ]);
+            'items' => $matches->take(3000)->map(fn (array $p) => ['c' => trim($p['codigo'] ?? '-'), 'n' => $p['nombre'] ?? ''])->values()->all(),
+        ];
     }
 
     private function validated(Request $request): array

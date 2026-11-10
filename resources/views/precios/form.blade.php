@@ -91,6 +91,13 @@
                                 </div>
                                 <div id="incluidos-inputs"></div>
 
+                                <div id="bloque-temporal" class="border rounded p-2 mb-3" hidden>
+                                    <div class="mb-1"><strong>Precio 1 (nuevo precio de lista) de los productos elegidos</strong></div>
+                                    <div class="form-text mb-2">Escribe aquí el Precio 1 de cada producto elegido: se guarda directo en el producto al guardar la regla, sin entrar a editarlo.
+                                        Si quitas un producto de la regla (o eliminas la regla), su Precio 1 se borra.</div>
+                                    <div id="temporal-lista" style="max-height: 320px; overflow-y: auto;"></div>
+                                </div>
+
                                 <div class="mb-3">
                                     <label class="form-label" for="usuarios">Usuarios específicos</label>
                                     <input type="search" id="usuarios-filtro" class="form-control form-control-sm mb-1" placeholder="Filtrar lista…" autocomplete="off">
@@ -161,6 +168,9 @@
 
             var MAX = 200, visibles = MAX; // se dibujan solo las primeras filas (con "Mostrar más"): 1,200 casillas por letra eran lentas
             var ESC = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' };
+            var p1 = @json(collect(old('precios1', []))->mapWithKeys(fn ($f) => [mb_strtoupper(trim((string) ($f['c'] ?? ''))) => (string) ($f['v'] ?? '')])->all()), indice = {};
+            var tipoSel = document.getElementById('tipo');
+
             function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return ESC[c]; }); }
 
             function updateResumen() {
@@ -169,6 +179,29 @@
                     ? '<strong>' + n + '</strong> de ' + items.length + ' producto(s) elegido(s): la regla aplica solo a ellos'
                     : 'Sin selección: la regla aplica a los <strong>' + items.length + '</strong> producto(s) que coinciden')
                     + truncado;
+                renderTemporal();
+            }
+
+            // Precio temporal: lista de los productos elegidos con su Precio 1 editable (se guarda en el producto).
+            function renderTemporal() {
+                var bloque = document.getElementById('bloque-temporal'), cont = document.getElementById('temporal-lista');
+                bloque.hidden = tipoSel.value !== 'temporal';
+                if (bloque.hidden) { return; }
+
+                var codigos = Array.from(elegidos).sort();
+                if (!codigos.length) { cont.innerHTML = '<div class="text-muted">Marca arriba los productos que se van a cambiar y aquí escribes su Precio 1.</div>'; return; }
+
+                cont.innerHTML = codigos.map(function (c) {
+                    var it = indice[c], val = p1[c] !== undefined ? p1[c] : (it && it.p ? it.p : '');
+                    var nombre = it ? esc(it.c) + (it.n ? ' — ' + esc(it.n) : '') : esc(c);
+                    if (it && it.l === null) {
+                        return '<div class="d-flex align-items-center mb-1" style="gap: 8px;"><span style="flex: 1 1 auto; min-width: 0;">' + nombre + '</span>'
+                            + '<small class="text-danger">No está registrado en el portal: no se le puede poner Precio 1</small></div>';
+                    }
+                    return '<div class="d-flex align-items-center mb-1" style="gap: 8px;"><span style="flex: 1 1 auto; min-width: 0;">' + nombre + '</span>'
+                        + (it && it.l ? '<small class="text-muted text-nowrap">Lista: ' + it.l.toFixed(2) + '</small>' : '')
+                        + '<input type="number" step="0.01" min="0" class="form-control form-control-sm p1-input" style="width: 130px; flex: none;" data-c="' + esc(c) + '" value="' + esc(val) + '" placeholder="Precio 1"></div>';
+                }).join('');
             }
 
             function render() {
@@ -213,11 +246,18 @@
                     i.cu = (i.c || '').toUpperCase(); i.tc = c; i.tn = n; i.t = c + ' ' + n;
                     return i;
                 });
+                todos.forEach(function (i) { indice[i.cu] = i; });
                 loaded = true;
                 truncado = d.total > todos.length ? ' <span class="text-muted">(catálogo recortado a ' + todos.length + ' de ' + d.total + ')</span>' : '';
                 if (!todos.length) { resumen.textContent = 'El catálogo de productos está vacío en este momento (se sincroniza cada 2 minutos); recargá la página en un momento.'; return; }
                 refresh();
             })(@json($catalogo));
+
+            document.getElementById('temporal-lista').addEventListener('input', function (e) {
+                var c = e.target.getAttribute('data-c');
+                if (c !== null) { p1[c] = e.target.value; }
+            });
+            tipoSel.addEventListener('change', renderTemporal);
 
             lista.addEventListener('change', function (e) {
                 var c = e.target.getAttribute('data-c');
@@ -243,6 +283,15 @@
                     if (loaded && !vigentes.has(c)) { return; } // ya no coincide con el filtro: se descarta
                     var h = document.createElement('input'); h.type = 'hidden'; h.name = 'incluidos[]'; h.value = c; box.appendChild(h);
                 });
+                if (tipoSel.value === 'temporal') {
+                    var n = 0;
+                    Array.prototype.forEach.call(document.querySelectorAll('#temporal-lista .p1-input'), function (inp) {
+                        [['c', inp.getAttribute('data-c')], ['v', inp.value]].forEach(function (par) {
+                            var h = document.createElement('input'); h.type = 'hidden'; h.name = 'precios1[' + n + '][' + par[0] + ']'; h.value = par[1]; box.appendChild(h);
+                        });
+                        n++;
+                    });
+                }
             });
 
             var pausa = null;

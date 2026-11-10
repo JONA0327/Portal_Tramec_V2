@@ -47,7 +47,43 @@ class StockService
      */
     public function getProducts(): array
     {
+        $productos = $this->enCache();
+
+        return $productos !== [] ? $productos : $this->cargarSiVacio();
+    }
+
+    /** Lo que hay en caché, sin intentar traer nada (lo usan los propios syncs). */
+    private function enCache(): array
+    {
         return Cache::get(self::CACHE_KEY_PRODUCTS, []);
+    }
+
+    /**
+     * Caché vacía (primer arranque, cache:clear, caché vencida): en vez de mostrar el catálogo vacío hasta que
+     * pase el programador (cada 2 min), se trae en ese momento. Un solo request lo trae (candado); los demás
+     * esperan ese resultado. Si el servicio está caído se reintenta como mucho cada 30 s para no frenar cada página.
+     */
+    private function cargarSiVacio(): array
+    {
+        if (StockHealth::downSince() !== null && ! Cache::add('stock_service.reintento_catalogo_vacio', true, 30)) {
+            return [];
+        }
+
+        try {
+            $candado = Cache::lock('stock_service.sync_catalogo', 90);
+
+            if (! $candado->get()) {
+                return $candado->block(30, fn () => $this->enCache());
+            }
+
+            try {
+                return $this->enCache() ?: $this->sync();
+            } finally {
+                $candado->release();
+            }
+        } catch (\Throwable $e) {
+            return $this->enCache(); // sin servicio o sin candados: se queda con lo que haya (la página avisa que está caído)
+        }
     }
 
     /**
@@ -68,7 +104,7 @@ class StockService
     public function sync(): array
     {
         $before = [];
-        foreach ($this->getProducts() as $product) {
+        foreach ($this->enCache() as $product) {
             $before[$this->productId($product)] = $product;
         }
 
@@ -126,7 +162,7 @@ class StockService
         }
 
         $products = [];
-        foreach ($this->getProducts() as $existing) {
+        foreach ($this->enCache() as $existing) {
             $products[$this->productId($existing)] = $existing;
         }
 

@@ -240,18 +240,31 @@
             }
 
             // El catálogo viene incrustado en la página (ver PriceRulesController::previewItems): sin segunda petición.
-            (function (d) {
+            // Si llega vacío (el servidor lo está trayendo en ese momento) se vuelve a pedir solo, cada 3 s, hasta que llegue.
+            function cargarCatalogo(d) {
                 todos = d.items.map(function (i) {
                     var c = (i.c || '').toLowerCase(), n = (i.n || '').toLowerCase();
                     i.cu = (i.c || '').toUpperCase(); i.tc = c; i.tn = n; i.t = c + ' ' + n;
                     return i;
                 });
+                indice = {};
                 todos.forEach(function (i) { indice[i.cu] = i; });
                 loaded = true;
                 truncado = d.total > todos.length ? ' <span class="text-muted">(catálogo recortado a ' + todos.length + ' de ' + d.total + ')</span>' : '';
-                if (!todos.length) { resumen.textContent = 'El catálogo de productos está vacío en este momento (se sincroniza cada 2 minutos); recargá la página en un momento.'; return; }
+                if (!todos.length) {
+                    resumen.textContent = 'Cargando el catálogo de productos…';
+                    setTimeout(pedirCatalogo, 3000);
+                    return;
+                }
                 refresh();
-            })(@json($catalogo));
+            }
+            function pedirCatalogo() {
+                fetch(@json(route('price-rules.preview')) + '?buscar=&campo=ambos', {headers: {Accept: 'application/json'}})
+                    .then(function (r) { return r.json(); })
+                    .then(cargarCatalogo)
+                    .catch(function () { setTimeout(pedirCatalogo, 5000); });
+            }
+            cargarCatalogo(@json($catalogo));
 
             document.getElementById('temporal-lista').addEventListener('input', function (e) {
                 var c = e.target.getAttribute('data-c');

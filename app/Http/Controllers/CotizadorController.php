@@ -159,7 +159,7 @@ class CotizadorController extends Controller
             'g' => $grupo,
             'folio' => $folio,
             'logo' => $this->logoBase64(),
-            'qr' => $this->imagenBase64('qr-tramec.jpg'), // QR de la plantilla de cotización (tramec.mx)
+            'qr' => $this->imagenBase64('qr-tramec.png'), // QR simple a https://tramec.mx/
         ])->render();
 
         $dompdf = new Dompdf(['defaultFont' => 'DejaVu Sans', 'isHtml5ParserEnabled' => true]);

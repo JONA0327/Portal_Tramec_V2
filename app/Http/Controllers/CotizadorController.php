@@ -159,6 +159,7 @@ class CotizadorController extends Controller
             'g' => $grupo,
             'folio' => $folio,
             'logo' => $this->logoBase64(),
+            'qr' => $this->imagenBase64('qr-tramec.png'), // QR a https://tramec.mx/
         ])->render();
 
         $dompdf = new Dompdf(['defaultFont' => 'DejaVu Sans', 'isHtml5ParserEnabled' => true]);
@@ -323,6 +324,13 @@ class CotizadorController extends Controller
     private function enCatalogo($catalogo, string $empresa, int $id): ?array
     {
         return $catalogo->first(fn (array $p) => strtoupper($p['empresa_codigo'] ?? 'TRAMEC') === $empresa && (int) ($p['id'] ?? 0) === $id);
+    }
+
+    private function imagenBase64(string $archivo): ?string
+    {
+        $ruta = public_path($archivo);
+
+        return is_file($ruta) ? 'data:image/png;base64,'.base64_encode(file_get_contents($ruta)) : null;
     }
 
     private function logoBase64(): ?string

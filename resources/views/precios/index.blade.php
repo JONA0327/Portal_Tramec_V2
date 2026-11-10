@@ -6,11 +6,7 @@
                 <div class="card">
                     <div class="card-header d-flex justify-content-between align-items-center flex-wrap">
                         <span>Descuentos y aumentos</span>
-                        <span class="d-flex flex-wrap" style="gap: 8px;">
-                            <a href="{{ route('price-rules.create', ['plantilla' => 'c2000']) }}" class="btn btn-sm btn-secondary"
-                                title="Precarga la regla de v1: los precios de la serie C2000 Plus salen en $0.00 y eliges quién sí ve el real">Ocultar precios C2000 Plus</a>
-                            <a href="{{ route('price-rules.create') }}" class="btn btn-sm btn-primary">Nueva regla</a>
-                        </span>
+                        <a href="{{ route('price-rules.create') }}" class="btn btn-sm btn-primary">Nueva regla</a>
                     </div>
 
                     <div class="card-body">

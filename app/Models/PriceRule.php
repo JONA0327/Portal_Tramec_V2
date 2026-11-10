@@ -33,7 +33,7 @@ class PriceRule extends Model
     public const TIPOS = [
         'descuento' => 'Descuento (baja el precio)',
         'aumento' => 'Aumento (precio ÷ (1 − %))',
-        'cero' => 'Mostrar en $0.00 (ocultar el precio)',
+        'cero' => 'Ocultar precio (se muestra $0.00)',
     ];
 
     protected $fillable = ['nombre', 'tipo', 'porcentaje', 'buscar', 'campo', 'incluidos', 'columnas', 'niveles', 'usuarios', 'usuarios_excluidos', 'activo'];
@@ -108,7 +108,7 @@ class PriceRule extends Model
      */
     public function apply(float $price): float
     {
-        // "Mostrar en $0.00" (como el filtro de la serie C2000 Plus en v1): el precio real no se ve.
+        // "Ocultar precio": el precio real no se ve (sale $0.00), para los productos que coincidan con la regla.
         if ($this->tipo === 'cero') {
             return 0.0;
         }

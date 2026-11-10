@@ -48,7 +48,7 @@
                                 <div class="row">
                                     <div class="col-md-8 mb-3">
                                         <label class="form-label" for="buscar">Productos a los que aplica</label>
-                                        <input type="text" id="buscar" name="buscar" value="{{ old('buscar', $rule->buscar) }}" class="form-control" maxlength="255" placeholder="Ej.: C2000, DELTA   (vacío = todos los productos)" autocomplete="off">
+                                        <input type="text" id="buscar" name="buscar" value="{{ old('buscar', $rule->buscar) }}" class="form-control" maxlength="255" placeholder="Ej.: 25HP, C2000, DELTA   (vacío = todos los productos)" autocomplete="off">
                                         <div class="form-text">Separá varios términos con coma: coincide si el producto contiene cualquiera de ellos.</div>
                                     </div>
                                     <div class="col-md-4 mb-3">
@@ -128,8 +128,8 @@
                                         @endforeach
                                     </div>
                                     <div class="form-text">
-                                        Con "Mostrar en $0.00": marca aquí a quienes <strong>sí</strong> verán el precio real (como la casilla
-                                        "Ver precios C2000 Plus" de v1). En un descuento o aumento, quienes marques no lo reciben.
+                                        Con "Ocultar precio": marca aquí a quienes <strong>sí</strong> verán el precio real. En un descuento o
+                                        aumento, quienes marques no lo reciben.
                                     </div>
                                 </div>
 

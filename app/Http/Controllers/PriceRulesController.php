@@ -46,19 +46,11 @@ class PriceRulesController extends Controller
         return view('precios.index', ['usuariosPorId' => User::whereIn('id', $rules->pluck('usuarios')->merge($rules->pluck('usuarios_excluidos'))->flatten()->filter()->unique())->get()->keyBy('id'), 'rules' => $rules, 'counts' => $counts, 'totalCatalog' => $catalog->count()]);
     }
 
-    public function create(Request $request): View
+    public function create(): View
     {
-        // ?plantilla=c2000: precarga la regla de la serie C2000 Plus en $0.00 (la casilla "Ver precios C2000 Plus" de v1).
-        $plantilla = $request->query('plantilla') === 'c2000' ? [
-            'nombre' => 'Serie C2000 Plus en $0.00',
-            'tipo' => 'cero',
-            'buscar' => 'C2000 Plus',
-        ] : [];
-
         return view('precios.form', ['users' => User::orderBy('first_name')->get(['id', 'first_name', 'last_name', 'email']), 'rule' => new PriceRule([
             'tipo' => 'descuento',
             'campo' => 'ambos',
-            ...$plantilla,
             'columnas' => array_keys(PriceRule::COLUMNAS),
             'activo' => true,
         ])]);

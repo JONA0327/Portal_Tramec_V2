@@ -24,6 +24,11 @@ class PriceAdjuster
 
         foreach ($this->rules() as $rule) {
             if ($rule->appliesTo($column, $codigo, $nombre)) {
+                // "Ocultar precio": la celda sale como "-" (igual que un precio vacío), sin $0.00 ni botón de copiar.
+                if ($rule->tipo === 'cero') {
+                    return null;
+                }
+
                 $price = $rule->apply($price);
             }
         }

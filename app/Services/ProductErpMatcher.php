@@ -32,6 +32,12 @@ class ProductErpMatcher
     {
         $catalog = $this->stock->getProducts();
 
+        // Sin catálogo (servicio caído y caché vacía) no se toca nada: con la lista vacía TODOS los vínculos
+        // parecerían "ya no existe en el ERP" y se borrarían los idERP de todos los productos.
+        if ($catalog === []) {
+            return ['matched_before' => 0, 'matched_now' => 0, 'unmatched' => 0, 'total' => 0];
+        }
+
         $exacto = [];   // código tal cual (mayúsculas, recortado): tiene prioridad
         $suelto = [];   // código sin espacios ("HP 20 HF" = "HP20HF"): solo si no hay ambigüedad
         $existsByEmpresaId = [];

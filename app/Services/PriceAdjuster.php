@@ -46,7 +46,7 @@ class PriceAdjuster
      * @return array{0: array<string, ?float>, 1: array<string, float>, 2: array<string, float>}
      *         [precios ajustados, originales de los que cambiaron, precios temporales para mostrar en verde]
      *         Los originales solo se devuelven al ADMINISTRADOR (para el tooltip); al resto nunca. Los temporales en verde
-     *         solo los ven el administrador y los usuarios exceptuados de la regla (los demás ya ven el temporal como su precio).
+     *         solo los ven los usuarios exceptuados de la regla (los demás ya ven el temporal como su precio).
      */
     public function adjustAll(array $prices, string $codigo, string $nombre, ?Product $producto = null): array
     {
@@ -76,21 +76,20 @@ class PriceAdjuster
         return [$adjusted, $originals, $temporales];
     }
 
-    /** Reglas de precio temporal que este usuario ve en verde (junto al original): el administrador y los exceptuados. */
+    /** Reglas de precio temporal que este usuario ve en verde (junto al original): solo los exceptuados de la regla. */
     private function temporalesVerdes(): Collection
     {
         $user = Auth::user();
 
         return $this->temporales ??= PriceRule::where('activo', true)->where('tipo', 'temporal')->orderBy('id')->get()
-            ->filter(fn (PriceRule $r) => $user !== null && ($user->isAdmin()
-                || (in_array($user->id, array_map('intval', $r->usuarios_excluidos ?? []), true) && $r->alcanzaA($user))))
+            ->filter(fn (PriceRule $r) => $user !== null && in_array($user->id, array_map('intval', $r->usuarios_excluidos ?? []), true))
             ->values();
     }
 
     private function rules(): Collection
     {
         return $this->rules ??= PriceRule::where('activo', true)->orderBy('id')->get()
-            ->filter(fn (PriceRule $r) => $r->visibleTo(Auth::user()) && ! ($r->tipo === 'temporal' && (Auth::user()?->isAdmin() ?? false)))
+            ->filter(fn (PriceRule $r) => $r->visibleTo(Auth::user()))
             ->values();
     }
 }

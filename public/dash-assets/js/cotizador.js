@@ -60,4 +60,14 @@
     });
 
     recalcular();
+
+    // Dos pasos en la misma página: primero el carrito, luego los datos de la cotización y los PDF.
+    form.addEventListener('click', function (e) {
+        var b = e.target.closest ? e.target.closest('[data-paso]') : null;
+        if (!b) { return; }
+        var datos = b.getAttribute('data-paso') === 'datos';
+        document.getElementById('paso-carrito').hidden = datos;
+        document.getElementById('paso-datos').hidden = !datos;
+        window.scrollTo(0, 0);
+    });
 })();

@@ -30,11 +30,19 @@
 
 <table>
     <tr>
-        <td style="width: 55%; text-align: center; vertical-align: top; padding-top: 6px;">
-            <div class="b" style="color: {{ $azul }}; font-size: 11px; line-height: 1.5;">TRANSMISIÓN MECÁNICA Y CONTROL</div>
-            @if($qr)<img src="{{ $qr }}" style="width: 84px; height: 84px; margin-top: 4px;" alt="QR tramec.mx">@endif
-            <div style="margin-top: 8px; font-size: 9px;">QRO - GDL - SLP</div>
-            <div class="b" style="margin-top: 6px; font-size: 9px;">Oficina: (442) 294 8232</div>
+        <td style="width: 55%; vertical-align: top;">
+            <table>
+                <tr>
+                    <td style="width: 95px; vertical-align: top; padding: 0;">
+                        @if($qr)<img src="{{ $qr }}" style="width: 90px; height: 90px;" alt="QR">@endif
+                    </td>
+                    <td style="text-align: center; vertical-align: top; padding-top: 6px;">
+                        <div class="b" style="color: {{ $azul }}; font-size: 11px; line-height: 1.5;">TRANSMISIÓN MECÁNICA Y CONTROL</div>
+                        <div style="margin-top: 8px; font-size: 9px;">QRO - GDL - SLP</div>
+                        <div class="b" style="margin-top: 6px; font-size: 9px;">Oficina: (442) 294 8232</div>
+                    </td>
+                </tr>
+            </table>
         </td>
         <td style="width: 45%; text-align: right; vertical-align: top;">
             @if($logo)<img src="{{ $logo }}" style="width: 215px;" alt="TRAMEC">@endif

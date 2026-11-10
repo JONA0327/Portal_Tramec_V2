@@ -247,7 +247,7 @@ class CotizadorController extends Controller
             $item->update([
                 'descripcion' => $f['descripcion'] ?? $item->descripcion,
                 'cantidad' => $f['cantidad'],
-                'unidad' => ($f['unidad'] ?? '') ?: 'PZA.',
+                'unidad' => ($f['unidad'] ?? $item->unidad) ?: 'PZA.', // ya no se captura en el carrito: se conserva (por defecto PZA.)
                 'tiempo_entrega' => $f['tiempo_entrega'] ?? null,
                 'precio_manual' => $manual,
                 'canal' => $canal,

@@ -57,7 +57,6 @@
                                                     <th>Código</th>
                                                     <th style="min-width: 240px;">Descripción</th>
                                                     <th style="width: 90px;">Cant.</th>
-                                                    <th style="width: 80px;">Uds.</th>
                                                     <th style="width: 150px;">Tiempo de entrega</th>
                                                     <th style="width: 150px;">Canal</th>
                                                     <th style="width: 130px;">Precio unitario</th>
@@ -72,7 +71,6 @@
                                                         <td class="text-nowrap"><strong>{{ $it->codigo }}</strong></td>
                                                         <td><input type="text" name="items[{{ $it->id }}][descripcion]" value="{{ old("items.{$it->id}.descripcion", $it->descripcion) }}" class="form-control" maxlength="500"></td>
                                                         <td><input type="number" name="items[{{ $it->id }}][cantidad]" value="{{ old("items.{$it->id}.cantidad", rtrim(rtrim(number_format($it->cantidad, 2, '.', ''), '0'), '.')) }}" class="form-control cot-cant" min="0.01" step="any" required></td>
-                                                        <td><input type="text" name="items[{{ $it->id }}][unidad]" value="{{ old("items.{$it->id}.unidad", $it->unidad) }}" class="form-control" maxlength="20"></td>
                                                         <td><input type="text" name="items[{{ $it->id }}][tiempo_entrega]" value="{{ old("items.{$it->id}.tiempo_entrega", $it->tiempo_entrega) }}" class="form-control" maxlength="100"></td>
                                                         <td>
                                                             <select name="items[{{ $it->id }}][canal]" class="form-control cot-canal" aria-label="Canal de {{ $it->codigo }}">

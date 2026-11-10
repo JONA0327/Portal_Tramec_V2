@@ -148,6 +148,7 @@ class CotizadorController extends Controller
 
         $data = $request->validate([
             'fecha' => ['required', 'date'],
+            'folio' => ['nullable', 'string', 'max:60'],
             'vigencia' => ['nullable', 'string', 'max:60'],
             'cliente_empresa' => ['nullable', 'string', 'max:191'],
             'cliente_atencion' => ['nullable', 'string', 'max:191'],

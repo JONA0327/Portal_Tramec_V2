@@ -563,7 +563,7 @@
                                     <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
                                 </svg>
                             </span>
-                            <span class="menu-text">Cotizador @if($itemsCarrito > 0)<span class="badge bg-info text-dark" title="Renglones en el carrito">{{ $itemsCarrito }}</span>@endif</span>
+                            <span class="menu-text">Carrito cotizador @if($itemsCarrito > 0)<span class="badge bg-info text-dark" title="Renglones en el carrito">{{ $itemsCarrito }}</span>@endif</span>
                         </a>
                     </li>
                     @endif

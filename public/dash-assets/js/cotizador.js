@@ -56,7 +56,14 @@
         if (t.classList && t.classList.contains('cot-precio')) {
             t.closest('.cot-fila').setAttribute('data-manual', '1');
         }
-        if (t.matches && t.matches('.cot-cant, .cot-precio, #descuento_pct, #iva_pct')) { recalcular(); }
+        if (t.matches && t.matches('.cot-cant, .cot-precio, #descuento_pct')) { recalcular(); }
+    });
+
+    form.querySelector('#iva_pct').addEventListener('change', recalcular);
+
+    // El aviso de "guardado" se quita solo.
+    Array.prototype.forEach.call(document.querySelectorAll('.alert-success'), function (a) {
+        setTimeout(function () { a.style.display = 'none'; }, 4000);
     });
 
     recalcular();

@@ -8,7 +8,7 @@
             <div class="col-12">
                 <div class="card">
                     <div class="card-header d-flex justify-content-between align-items-center flex-wrap">
-                        <span>Cotizador</span>
+                        <span>Carrito cotizador</span>
                         <small class="text-muted">{{ $c->items->count() }} renglón(es) en el carrito</small>
                     </div>
 
@@ -23,6 +23,17 @@
 
                             <div id="paso-carrito" {{ $errors->any() ? 'hidden' : '' }}>
                             <h6 class="mb-3">Productos en el carrito</h6>
+
+                                <div class="mb-3" style="max-width: 420px;">
+                                    <label class="form-label" for="precio_base">Canal (precio que se cotiza)</label>
+                                    <select id="precio_base" name="precio_base" class="form-control">
+                                        @foreach($columnas as $clave => $etiqueta)
+                                            <option value="{{ $clave }}" @selected(old('precio_base', $c->precio_base) === $clave)>{{ $etiqueta }}</option>
+                                        @endforeach
+                                    </select>
+                                    <div class="form-text">Al elegir el canal, los renglones toman el precio de ese canal. Puedes cambiar el precio de cada renglón a mano.</div>
+                                </div>
+
 
                             @if($c->items->isEmpty())
                                 <p class="text-muted">El carrito está vacío. Marca productos en <a href="{{ route('products') }}">Productos</a> o <a href="{{ route('existencias') }}">Existencias</a> y usa "Agregar al carrito de cotización".</p>
@@ -103,7 +114,7 @@
                                 </div>
                                 <div class="col-6 col-lg-3 mb-3">
                                     <label class="form-label" for="folio">Folio</label>
-                                    <input type="text" id="folio" class="form-control" value="{{ $c->folio }}" placeholder="Automático al descargar el PDF" readonly>
+                                    <input type="text" id="folio" name="folio" class="form-control" value="{{ old('folio', $c->folio) }}" maxlength="60" placeholder="Automático (COT-00001...) si lo dejas vacío">
                                 </div>
                                 <div class="col-6 col-lg-3 mb-3">
                                     <label class="form-label" for="vigencia">Vigencia</label>
@@ -146,22 +157,18 @@
                             </div>
 
                             <div class="row">
-                                <div class="col-12 col-lg-6 mb-3">
-                                    <label class="form-label" for="precio_base">Precio que se cotiza</label>
-                                    <select id="precio_base" name="precio_base" class="form-control">
-                                        @foreach($columnas as $clave => $etiqueta)
-                                            <option value="{{ $clave }}" @selected(old('precio_base', $c->precio_base) === $clave)>{{ $etiqueta }}</option>
-                                        @endforeach
-                                    </select>
-                                    <div class="form-text">Columna de precios que alimenta los renglones. Puedes cambiar el precio de cada renglón a mano.</div>
-                                </div>
                                 <div class="col-6 col-lg-3 mb-3">
                                     <label class="form-label" for="descuento_pct">Descuento %</label>
                                     <input type="number" id="descuento_pct" name="descuento_pct" class="form-control" step="0.01" min="0" max="100" value="{{ old('descuento_pct', rtrim(rtrim(number_format($c->descuento_pct, 2, '.', ''), '0'), '.') ?: 0) }}">
                                 </div>
                                 <div class="col-6 col-lg-3 mb-3">
-                                    <label class="form-label" for="iva_pct">IVA %</label>
-                                    <input type="number" id="iva_pct" name="iva_pct" class="form-control" step="0.01" min="0" max="100" value="{{ old('iva_pct', rtrim(rtrim(number_format($c->iva_pct, 2, '.', ''), '0'), '.') ?: 0) }}">
+                                    <label class="form-label" for="iva_pct">IVA</label>
+                                    @php $ivaActual = (float) old('iva_pct', $c->iva_pct); @endphp
+                                    <select id="iva_pct" name="iva_pct" class="form-control">
+                                        <option value="16" @selected($ivaActual === 16.0)>16 %</option>
+                                        <option value="0" @selected($ivaActual === 0.0)>0 %</option>
+                                        @if(! in_array($ivaActual, [16.0, 0.0], true))<option value="{{ $ivaActual }}" selected>{{ $ivaActual }} %</option>@endif
+                                    </select>
                                 </div>
                             </div>
 

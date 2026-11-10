@@ -100,7 +100,7 @@ class CotizadorController extends Controller
         $grupos = $cotizacion->gruposPorMoneda();
 
         if (! isset($grupos[$moneda])) {
-            return redirect()->route('cotizador')->withErrors(['moneda' => "No hay renglones en {$moneda}."]);
+            return redirect()->route('cotizador')->withErrors(['moneda' => "No hay productos en {$moneda}."]);
         }
 
         $folio = $cotizacion->asignarFolio();

@@ -23,7 +23,7 @@
                                             <th>Folio</th>
                                             <th>Fecha</th>
                                             <th>Cliente</th>
-                                            <th>Renglones</th>
+                                            <th>Productos</th>
                                             <th class="text-end">Total</th>
                                             @if($verUsuario)<th>Guardada por</th>@endif
                                             <th>Guardada</th>

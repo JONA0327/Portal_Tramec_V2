@@ -9,7 +9,7 @@
                 <div class="card">
                     <div class="card-header d-flex justify-content-between align-items-center flex-wrap">
                         <span>Carrito cotizador</span>
-                        <span><a href="{{ route('cotizador.historial') }}" class="btn btn-sm btn-secondary">Historial de cotizaciones</a> <small class="text-muted ml-2">{{ $c->items->count() }} renglón(es) en el carrito</small></span>
+                        <span><a href="{{ route('cotizador.historial') }}" class="btn btn-sm btn-secondary">Historial de cotizaciones</a> <small class="text-muted ml-2">{{ $c->items->count() }} producto(s) en el carrito</small></span>
                     </div>
 
                     <div class="card-body">
@@ -31,7 +31,7 @@
                                             <option value="{{ $clave }}" @selected(old('precio_base', $c->precio_base) === $clave)>{{ $etiqueta }}</option>
                                         @endforeach
                                     </select>
-                                    <div class="form-text">Al elegir el canal, los renglones toman el precio de ese canal. Puedes cambiar el precio de cada renglón a mano.</div>
+                                    <div class="form-text">Al elegir el canal, los productos toman el precio de ese canal. Puedes cambiar el precio de cada producto a mano.</div>
                                 </div>
 
 
@@ -48,7 +48,7 @@
 
                             @foreach($grupos as $moneda => $g)
                                 <div class="mb-4 cot-grupo" data-moneda="{{ $moneda }}">
-                                    <h6 class="mb-2"><span class="badge bg-dark text-white">{{ $moneda }}</span> <small class="text-muted">{{ $g['items']->count() }} renglón(es)</small></h6>
+                                    <h6 class="mb-2"><span class="badge bg-dark text-white">{{ $moneda }}</span> <small class="text-muted">{{ $g['items']->count() }} producto(s)</small></h6>
 
                                     <div class="table-responsive">
                                         <table class="table table-bordered align-middle mb-2">
@@ -212,7 +212,7 @@
 
                         @if($c->items->isNotEmpty())
                             <form id="form-vaciar" method="POST" action="{{ route('cotizador.vaciar') }}"
-                                onsubmit="return confirm('¿Vaciar el carrito y empezar una cotización nueva? Se pierden los renglones y los datos capturados.')">
+                                onsubmit="return confirm('¿Vaciar el carrito y empezar una cotización nueva? Se pierden los productos y los datos capturados.')">
                                 @csrf
                                 @method('DELETE')
                             </form>

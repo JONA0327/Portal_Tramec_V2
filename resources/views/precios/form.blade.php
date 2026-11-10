@@ -159,10 +159,12 @@
                 form = buscar.form, todos = null, items = [], loaded = false, truncado = '',
                 elegidos = new Set(@json(array_values(old('incluidos', $rule->incluidos ?? []))));
 
-            function esc(s) { var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+            var MAX = 200, visibles = MAX; // se dibujan solo las primeras filas (con "Mostrar más"): 1,200 casillas por letra eran lentas
+            var ESC = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' };
+            function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return ESC[c]; }); }
 
             function updateResumen() {
-                var n = items.filter(function (i) { return elegidos.has(i.c.toUpperCase()); }).length;
+                var n = 0; for (var k = 0; k < items.length; k++) { if (elegidos.has(items[k].cu)) { n++; } }
                 resumen.innerHTML = (n
                     ? '<strong>' + n + '</strong> de ' + items.length + ' producto(s) elegido(s): la regla aplica solo a ellos'
                     : 'Sin selección: la regla aplica a los <strong>' + items.length + '</strong> producto(s) que coinciden')
@@ -170,12 +172,16 @@
             }
 
             function render() {
-                lista.innerHTML = items.map(function (i) {
-                    var texto = (i.c + ' ' + i.n).toLowerCase();
-                    return '<label data-t="' + esc(texto) + '">'
-                        + '<input type="checkbox" data-c="' + esc(i.c.toUpperCase()) + '"' + (elegidos.has(i.c.toUpperCase()) ? ' checked' : '') + '>'
-                        + '<span>' + esc(i.c) + (i.n && i.n !== i.c ? ' — ' + esc(i.n) : '') + '</span></label>';
-                }).join('');
+                var html = [], n = Math.min(items.length, visibles);
+                for (var k = 0; k < n; k++) {
+                    var i = items[k];
+                    html.push('<label><input type="checkbox" data-c="' + esc(i.cu) + '"' + (elegidos.has(i.cu) ? ' checked' : '') + '>'
+                        + '<span>' + esc(i.c) + (i.n && i.n !== i.c ? ' — ' + esc(i.n) : '') + '</span></label>');
+                }
+                if (items.length > n) {
+                    html.push('<button type="button" class="btn btn-sm btn-outline-secondary m-2" id="mostrar-mas">Mostrar más (' + (items.length - n) + ' restantes)</button>');
+                }
+                lista.innerHTML = html.join('');
                 controles.hidden = items.length === 0;
                 updateResumen();
             }
@@ -186,25 +192,29 @@
                 return q.toLowerCase().split(/\s+/).filter(Boolean).every(function (w) { return texto.indexOf(w) >= 0; });
             }
 
-            // Misma regla que PriceRule::matchesFilter: términos separados por coma (cualquiera), vacío = todos.
-            function aplicaFiltro(i) {
-                var terms = buscar.value.split(',').map(function (x) { return x.trim(); }).filter(Boolean);
-                if (!terms.length) { return true; }
-                var texto = campo.value === 'codigo' ? i.c : campo.value === 'nombre' ? i.n : i.c + ' ' + i.n;
-                return terms.some(function (term) { return coincide(texto, term); });
-            }
-
-            // Filtra al instante, mientras se escribe, sobre el catálogo ya cargado (una sola descarga).
+            // Misma regla que PriceRule::matchesFilter: términos separados por coma (cualquiera), cada término = todas sus
+            // palabras, en cualquier orden; vacío = todos. Los textos en minúsculas se calculan una vez al cargar.
             function refresh() {
                 if (!todos) { return; }
-                items = todos.filter(aplicaFiltro);
+                var terms = buscar.value.split(',').map(function (x) { return x.toLowerCase().split(/\s+/).filter(Boolean); }).filter(function (w) { return w.length; });
+                var donde = campo.value;
+                visibles = MAX;
+                items = !terms.length ? todos : todos.filter(function (i) {
+                    var texto = donde === 'codigo' ? i.tc : donde === 'nombre' ? i.tn : i.t;
+                    return terms.some(function (words) { return words.every(function (w) { return texto.indexOf(w) >= 0; }); });
+                });
                 render();
             }
 
             fetch(@json(route('price-rules.preview')) + '?buscar=&campo=ambos', {headers: {Accept: 'application/json'}})
                 .then(function (r) { return r.json(); })
                 .then(function (d) {
-                    todos = d.items; loaded = true;
+                    todos = d.items.map(function (i) {
+                        var c = (i.c || '').toLowerCase(), n = (i.n || '').toLowerCase();
+                        i.cu = (i.c || '').toUpperCase(); i.tc = c; i.tn = n; i.t = c + ' ' + n;
+                        return i;
+                    });
+                    loaded = true;
                     truncado = d.total > todos.length ? ' <span class="text-muted">(catálogo recortado a ' + todos.length + ' de ' + d.total + ')</span>' : '';
                     refresh();
                 })
@@ -216,18 +226,19 @@
                 e.target.checked ? elegidos.add(c) : elegidos.delete(c);
                 updateResumen();
             });
-            function marcarVisibles(on) {
-                Array.prototype.forEach.call(lista.querySelectorAll('label:not([hidden]) input'), function (cb) {
-                    cb.checked = on; on ? elegidos.add(cb.getAttribute('data-c')) : elegidos.delete(cb.getAttribute('data-c'));
-                });
-                updateResumen();
+            function marcarTodos(on) {
+                items.forEach(function (i) { on ? elegidos.add(i.cu) : elegidos.delete(i.cu); });
+                render();
             }
-            document.getElementById('marcar-todos').addEventListener('click', function () { marcarVisibles(true); });
-            document.getElementById('marcar-ninguno').addEventListener('click', function () { marcarVisibles(false); });
+            document.getElementById('marcar-todos').addEventListener('click', function () { marcarTodos(true); });
+            document.getElementById('marcar-ninguno').addEventListener('click', function () { marcarTodos(false); });
+            lista.addEventListener('click', function (e) {
+                if (e.target.id === 'mostrar-mas') { visibles += MAX; render(); }
+            });
 
             // Al enviar: cada producto marcado de la lista actual viaja como incluidos[].
             form.addEventListener('submit', function () {
-                var box = document.getElementById('incluidos-inputs'), vigentes = new Set(items.map(function (i) { return i.c.toUpperCase(); }));
+                var box = document.getElementById('incluidos-inputs'), vigentes = new Set(items.map(function (i) { return i.cu; }));
                 box.innerHTML = '';
                 elegidos.forEach(function (c) {
                     if (loaded && !vigentes.has(c)) { return; } // ya no coincide con el filtro: se descarta
@@ -235,7 +246,8 @@
                 });
             });
 
-            buscar.addEventListener('input', refresh);
+            var pausa = null;
+            buscar.addEventListener('input', function () { clearTimeout(pausa); pausa = setTimeout(refresh, 120); });
             campo.addEventListener('change', refresh);
 
             // "Mostrar en $0.00" no usa porcentaje

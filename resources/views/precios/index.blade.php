@@ -5,7 +5,7 @@
             <div class="col-12">
                 <div class="card">
                     <div class="card-header d-flex justify-content-between align-items-center flex-wrap">
-                        <span>Descuentos y aumentos</span>
+                        <span>Reglas de precios</span>
                         <a href="{{ route('price-rules.create') }}" class="btn btn-sm btn-primary">Nueva regla</a>
                     </div>
 

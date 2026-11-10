@@ -594,7 +594,7 @@
                                     <circle cx="17.5" cy="17.5" r="2.5"></circle>
                                 </svg>
                             </span>
-                            <span class="menu-text">Descuentos y aumentos</span>
+                            <span class="menu-text">Reglas de precios</span>
                         </a>
                     </li>
                     <li>

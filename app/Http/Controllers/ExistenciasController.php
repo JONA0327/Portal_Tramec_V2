@@ -44,27 +44,26 @@ class ExistenciasController extends Controller
     private const PER_PAGE = 25; // predeterminado; el usuario puede elegir 10/25/50/100 (ver PorPagina)
 
     /**
-     * "Agrupar por modelo" se guarda en el usuario (users.agrupar_existencias) y vuelve a aplicarse en la siguiente
-     * visita, aunque se cierre la sesión. Al enviar el formulario de filtros (campo oculto "filtros") manda lo que
-     * está marcado y se guarda; al entrar sin filtros (menú, enlaces) se usa lo guardado.
+     * "Agrupar por modelo" y "Ver ocultos" se guardan en el usuario (users.agrupar_existencias / ver_ocultos_existencias)
+     * y vuelven a aplicarse en la siguiente visita, aunque se cierre la sesión. Al enviar el formulario de filtros (campo
+     * oculto "filtros") manda lo que está marcado y se guarda; al entrar sin filtros (menú, enlaces) se usa lo guardado.
+     * Solo se desmarcan a mano.
      */
-    private function preferenciaAgrupar(Request $request): bool
+    private function preferencia(Request $request, string $columna, bool $enviado): bool
     {
         $usuario = $request->user();
-        $guarda = \Illuminate\Support\Facades\Schema::hasColumn('users', 'agrupar_existencias'); // por si falta migrar
+        $guarda = \Illuminate\Support\Facades\Schema::hasColumn('users', $columna); // por si falta migrar
 
         if (! $request->has('filtros')) {
-            return $guarda && $usuario ? (bool) $usuario->agrupar_existencias : $request->boolean('agrupar');
+            return $guarda && $usuario ? (bool) $usuario->{$columna} : $enviado;
         }
 
-        $agrupar = $request->boolean('agrupar');
-
-        if ($guarda && $usuario && (bool) $usuario->agrupar_existencias !== $agrupar) {
-            \Illuminate\Support\Facades\DB::table('users')->where('id', $usuario->id)->update(['agrupar_existencias' => $agrupar]);
-            $usuario->agrupar_existencias = $agrupar;
+        if ($guarda && $usuario && (bool) $usuario->{$columna} !== $enviado) {
+            \Illuminate\Support\Facades\DB::table('users')->where('id', $usuario->id)->update([$columna => $enviado]);
+            $usuario->{$columna} = $enviado;
         }
 
-        return $agrupar;
+        return $enviado;
     }
 
     public function index(Request $request, StockLevelService $stockLevels, StockService $stock, PriceAdjuster $adjuster): View
@@ -72,13 +71,13 @@ class ExistenciasController extends Controller
         $buscar = trim((string) $request->query('buscar', ''));
         $empresa = trim((string) $request->query('empresa', ''));
         $almacen = trim((string) $request->query('almacen', ''));
-        $estado = $request->query('estado', 'con_existencia');
-        if ($estado !== 'ocultos') {
-            $estado = 'con_existencia'; // lo que está en cero no se muestra hasta que vuelva a haber
-        }
+        // Un enlace con ?estado=ocultos (sin formulario) lo pide expresamente; si no, vale lo guardado del usuario.
+        $pideOcultos = $request->query('estado') === 'ocultos';
+        $estado = $request->user()->isAdmin() && $this->preferencia($request, 'ver_ocultos_existencias', $pideOcultos) ? 'ocultos' : 'con_existencia';
+        // lo que está en cero no se muestra hasta que vuelva a haber
         // Clasificación = campo "Tipo de producto" (products.kind_of_product), como en v1.
         $clasificacion = trim((string) $request->query('clasificacion', ''));
-        $agrupar = $this->preferenciaAgrupar($request); // un renglón por modelo, con sus almacenes aparte (se recuerda por usuario)
+        $agrupar = $this->preferencia($request, 'agrupar_existencias', $request->boolean('agrupar')); // un renglón por modelo, con sus almacenes aparte (se recuerda por usuario)
 
         if (! $request->user()->isAdmin() && $estado === 'ocultos') {
             $estado = 'con_existencia'; // los ocultos son de administración

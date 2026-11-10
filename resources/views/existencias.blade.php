@@ -140,6 +140,7 @@
                                 <form id="form-masivo" method="POST" action="{{ route('cotizador.agregar') }}">@csrf</form>
                                 <div class="d-flex flex-wrap align-items-center mb-2" style="gap: 8px;">
                                     <span class="text-muted">Seleccionados: <strong id="sel-contador">0</strong></span>
+                                    <button type="button" class="btn btn-sm btn-limpiar" data-sel-limpiar hidden>Quitar selección</button>
                                     <button type="submit" form="form-masivo" class="btn btn-sm btn-primary" data-carrito disabled
                                         title="Agrega lo marcado al carrito y ábrelo en Cotizador">Agregar al carrito de cotización</button>
                                 </div>

@@ -34,7 +34,14 @@ class PriceRule extends Model
         'descuento' => 'Descuento (baja el precio)',
         'aumento' => 'Aumento (precio ÷ (1 − %))',
         'cero' => 'Ocultar precio (se muestra $0.00)',
+        'temporal' => 'Precio temporal (usa el Precio 1 del producto)',
     ];
+
+    // Precio temporal, igual que en el portal anterior (v1): el "Precio 1" (price1) del producto es el nuevo precio de lista.
+    // DELTA: cada canal = price1 × estos factores. Otras marcas: el precio del canal × (price1 ÷ precio de lista actual).
+    public const FACTORES_DELTA = ['canal_tmc' => 0.7275, 'canal' => 0.745, 'oem' => 0.812, 'usuario_final' => 0.854];
+
+    private const CAMPO_PRECIO = ['canal_tmc' => 'price2', 'canal' => 'price3', 'oem' => 'price4', 'usuario_final' => 'price5'];
 
     protected $fillable = ['nombre', 'tipo', 'porcentaje', 'buscar', 'campo', 'incluidos', 'columnas', 'niveles', 'usuarios', 'usuarios_excluidos', 'activo'];
 
@@ -95,6 +102,36 @@ class PriceRule extends Model
         }
 
         return false;
+    }
+
+    /** Precio temporal de una columna para un producto local; null si no tiene Precio 1 (o no se puede calcular). */
+    public static function precioTemporal(?Product $p, string $columna): ?float
+    {
+        $nuevo = (float) ($p?->price1 ?? 0);
+        $lista = (float) ($p?->list_price ?? 0);
+
+        if ($nuevo <= 0 || $lista <= 0) {
+            return null;
+        }
+
+        if ($columna === 'precio_lista') {
+            return round($nuevo, 2);
+        }
+
+        if (strcasecmp((string) $p->brand, 'DELTA') === 0) {
+            return round($nuevo * (self::FACTORES_DELTA[$columna] ?? 0), 2) ?: null;
+        }
+
+        $actual = (float) ($p->{self::CAMPO_PRECIO[$columna] ?? 'price2'} ?? 0);
+
+        return $actual > 0 ? round($actual * $nuevo / $lista, 2) : null;
+    }
+
+    /** ¿Alcanza al usuario por nivel/usuario, sin contar las excepciones? (quien está exceptuado ve el precio original y el temporal). */
+    public function alcanzaA(?User $user): bool
+    {
+        return $this->visibleToLevel($user?->level)
+            && (empty($this->usuarios) || ($user !== null && in_array($user->id, array_map('intval', $this->usuarios), true)));
     }
 
     public function appliesTo(string $column, string $codigo, string $nombre): bool

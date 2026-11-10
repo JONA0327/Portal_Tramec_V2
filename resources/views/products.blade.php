@@ -158,6 +158,9 @@
                                                         data-modelo="{{ $row['codigo'] }}" data-descripcion="{{ $row['descripcion'] }}">
                                                         @if($row['precios'][$key] !== null)
                                                             {{ number_format($row['precios'][$key], 2, '.', ',') }}&nbsp;{{ $row['moneda'] }}
+                                                            @isset($row['temporales'][$key])
+                                                                <br><span class="precio-temporal" style="color: green;">{{ number_format($row['temporales'][$key], 2, '.', ',') }}&nbsp;{{ $row['moneda'] }}</span>
+                                                            @endisset
                                                             @if($puedeCopiar)
                                                                 <button type="button" class="copy-price-btn" title="Copiar Código, Descripción y {{ $label }}">
                                                                     <i class="fas fa-copy" aria-hidden="true"></i>

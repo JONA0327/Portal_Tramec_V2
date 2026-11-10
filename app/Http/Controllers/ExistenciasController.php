@@ -165,13 +165,13 @@ class ExistenciasController extends Controller
                 $nombre = 'Sin descripción';
             }
             // Descuentos/aumentos (PriceRule) solo para mostrar; products no se toca.
-            [$precioFinal, $precioOriginal] = $adjuster->adjustAll([
+            [$precioFinal, $precioOriginal, $precioTemporal] = $adjuster->adjustAll([
                 'canal_tmc' => $precios?->price2,
                 'canal' => $precios?->price3,
                 'oem' => $precios?->price4,
                 'usuario_final' => $precios?->price5,
                 'precio_lista' => $precios?->list_price,
-            ], $codigo, $precios?->description_short ?: $nombre); // las reglas filtran por código y descripción (lo que ve el usuario)
+            ], $codigo, $precios?->description_short ?: $nombre, $precios); // las reglas filtran por código y descripción (lo que ve el usuario)
 
             return [
                 'empresa' => $empresaCodigo,
@@ -189,6 +189,7 @@ class ExistenciasController extends Controller
                 'clasificacion' => $precios?->kind_of_product ?: null,
                 ...$precioFinal,
                 'originales' => $precioOriginal,
+                'temporales' => $precioTemporal,
             ];
         });
 

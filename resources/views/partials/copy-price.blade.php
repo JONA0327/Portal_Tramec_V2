@@ -27,7 +27,9 @@
         document.addEventListener('DOMContentLoaded', function () {
         $(document).on('click', '.copy-price-cell', function () {
             var $cell = $(this);
-            var precioTexto = $cell.clone().find('.copy-price-btn').remove().end().text().trim().replace(/\s+/g, ' ');
+            // Con precio temporal (en verde) se copia ese precio; si no, el que se ve en la celda.
+            var $verde = $cell.find('.precio-temporal');
+            var precioTexto = ($verde.length ? $verde.first() : $cell.clone().find('.copy-price-btn').remove().end()).text().trim().replace(/\s+/g, ' ');
             var text = $cell.data('modelo') + '\n' + $cell.data('descripcion') + '\n' + '$' + precioTexto + ' + IVA' + ($cell.data('existencia') ? '\n' + $cell.data('existencia') : '');
 
             function mostrarCopiado() {

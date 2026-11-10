@@ -46,6 +46,8 @@
                                                 <td class="text-nowrap">
                                                     @if($rule->tipo === 'cero')
                                                         <span class="badge bg-dark text-white">$0.00</span>
+                                                    @elseif($rule->tipo === 'temporal')
+                                                        <span class="badge bg-success text-white" title="Usa el Precio 1 de cada producto">Temporal</span>
                                                     @else
                                                         <span class="badge {{ $rule->tipo === 'descuento' ? 'bg-success' : 'bg-warning text-dark' }}">
                                                             {{ $rule->tipo === 'descuento' ? '−' : '+' }}{{ rtrim(rtrim(number_format($rule->porcentaje, 2), '0'), '.') }}%

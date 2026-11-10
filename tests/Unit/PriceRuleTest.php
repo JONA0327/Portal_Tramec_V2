@@ -3,6 +3,7 @@
 namespace Tests\Unit;
 
 use App\Models\PriceRule;
+use App\Models\Product;
 use App\Models\User;
 use PHPUnit\Framework\TestCase;
 
@@ -92,5 +93,24 @@ class PriceRuleTest extends TestCase
         $this->assertTrue($r->visibleToLevel('3'));
         $this->assertFalse($r->visibleToLevel(0));
         $this->assertFalse($r->visibleToLevel(null));
+    }
+
+    public function test_precio_temporal_como_en_v1(): void
+    {
+        // DELTA: cada canal = price1 x factor fijo; la lista nueva = price1.
+        $delta = (new Product)->forceFill(['brand' => 'DELTA', 'price1' => 1000, 'list_price' => 800, 'price2' => 500, 'price3' => 600, 'price4' => 650, 'price5' => 700]);
+        $this->assertEqualsWithDelta(727.5, PriceRule::precioTemporal($delta, 'canal_tmc'), 0.001);
+        $this->assertEqualsWithDelta(745.0, PriceRule::precioTemporal($delta, 'canal'), 0.001);
+        $this->assertEqualsWithDelta(812.0, PriceRule::precioTemporal($delta, 'oem'), 0.001);
+        $this->assertEqualsWithDelta(854.0, PriceRule::precioTemporal($delta, 'usuario_final'), 0.001);
+        $this->assertEqualsWithDelta(1000.0, PriceRule::precioTemporal($delta, 'precio_lista'), 0.001);
+
+        // Otras marcas: el precio actual del canal x (price1 / lista actual).
+        $otra = (new Product)->forceFill(['brand' => 'MARATHON', 'price1' => 1000, 'list_price' => 800, 'price2' => 600]);
+        $this->assertEqualsWithDelta(750.0, PriceRule::precioTemporal($otra, 'canal_tmc'), 0.001);
+
+        // Sin Precio 1 (o sin lista) no hay precio temporal.
+        $this->assertNull(PriceRule::precioTemporal((new Product)->forceFill(['brand' => 'DELTA', 'list_price' => 800]), 'canal'));
+        $this->assertNull(PriceRule::precioTemporal(null, 'canal'));
     }
 }

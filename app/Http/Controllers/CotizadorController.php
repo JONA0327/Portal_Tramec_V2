@@ -306,7 +306,7 @@ class CotizadorController extends Controller
             'usuario_final' => $local?->price5,
             'precio_lista' => $local?->list_price,
         ];
-        [$ajustados] = $adjuster->adjustAll(array_intersect_key($base, array_flip($columnas)), $codigo, (string) $descripcion);
+        [$ajustados] = $adjuster->adjustAll(array_intersect_key($base, array_flip($columnas)), $codigo, (string) $descripcion, $local);
 
         return [
             'empresa' => $empresa,

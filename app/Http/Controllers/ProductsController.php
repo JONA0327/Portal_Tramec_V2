@@ -77,7 +77,7 @@ class ProductsController extends Controller
         $rows = $catalog->map(function (array $item) use ($localByKey, $adjuster) {
             $empresaCodigo = $item['empresa_codigo'] ?? 'TRAMEC';
             $local = $localByKey->get("{$empresaCodigo}:{$item['id']}");
-            [$precios, $originales] = $adjuster->adjustAll($this->preciosDe($local), $item['codigo'] ?? '-', $local?->description_short ?: ($item['nombre'] ?? '-'));
+            [$precios, $originales, $temporales] = $adjuster->adjustAll($this->preciosDe($local), $item['codigo'] ?? '-', $local?->description_short ?: ($item['nombre'] ?? '-'), $local);
 
             return [
                 'erp_id' => $item['id'] ?? null,
@@ -90,6 +90,7 @@ class ProductsController extends Controller
                 'clasificacion' => $local?->kind_of_product ?: null,
                 'precios' => $precios,
                 'originales' => $originales,
+                'temporales' => $temporales,
                 'moneda' => $local?->base_currency ?: 'MXN',
                 'estado' => $local ? 'normal' : 'nuevo',
             ];
@@ -102,7 +103,7 @@ class ProductsController extends Controller
             ->get()
             ->reject(fn (Product $p) => ProductoBaja::esBaja(null, $p->name))
             ->map(function (Product $p) use ($adjuster) {
-                [$precios, $originales] = $adjuster->adjustAll($this->preciosDe($p), (string) $p->name, (string) ($p->description_short ?: $p->name2));
+                [$precios, $originales, $temporales] = $adjuster->adjustAll($this->preciosDe($p), (string) $p->name, (string) ($p->description_short ?: $p->name2), $p);
 
                 return [
                 'erp_id' => null,
@@ -115,6 +116,7 @@ class ProductsController extends Controller
                 'clasificacion' => $p->kind_of_product ?: null,
                 'precios' => $precios,
                 'originales' => $originales,
+                'temporales' => $temporales,
                 'moneda' => $p->base_currency ?: 'MXN',
                 'estado' => 'advertencia',
                 ];

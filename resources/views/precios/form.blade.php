@@ -109,7 +109,7 @@
                             </div>
 
                             <div class="mb-3">
-                                    <label class="form-label" for="excepciones-filtro">Excepciones: usuarios que NO reciben esta regla</label>
+                                    <label class="form-label" for="excepciones-filtro">Excepciones: usuarios que NO reciben esta regla (con precio temporal ven el original y el nuevo en verde)</label>
                                     <input type="search" id="excepciones-filtro" class="form-control form-control-sm mb-1" placeholder="Filtrar lista…" autocomplete="off">
                                     @php $selExc = array_map('intval', old('usuarios_excluidos', $rule->usuarios_excluidos ?? [])); @endphp
                                     <div id="excepciones-lista" class="lista-casillas border rounded" style="max-height: 220px; overflow-y: auto;">
@@ -252,7 +252,7 @@
             // "Mostrar en $0.00" no usa porcentaje
             var tipo = document.getElementById('tipo'), bloquePct = document.getElementById('bloque-porcentaje'), pct = document.getElementById('porcentaje');
             function alternarPorcentaje() {
-                var cero = tipo.value === 'cero';
+                var cero = tipo.value === 'cero' || tipo.value === 'temporal'; // sin porcentaje
                 bloquePct.hidden = cero;
                 pct.required = !cero;
             }

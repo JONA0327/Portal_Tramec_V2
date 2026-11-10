@@ -123,7 +123,7 @@ class PriceRulesController extends Controller
         $data = $request->validate([
             'nombre' => ['required', 'string', 'max:120'],
             'tipo' => ['required', Rule::in(array_keys(PriceRule::TIPOS))],
-            'porcentaje' => ['exclude_if:tipo,cero', 'required', 'numeric', 'between:0.01,100'],
+            'porcentaje' => [Rule::excludeIf(in_array($request->input('tipo'), ['cero', 'temporal'], true)), 'required', 'numeric', 'between:0.01,100'],
             'buscar' => ['nullable', 'string', 'max:255'],
             'campo' => ['required', Rule::in(['codigo', 'nombre', 'ambos'])],
             'columnas' => ['required', 'array', 'min:1'],
@@ -138,7 +138,7 @@ class PriceRulesController extends Controller
             'usuarios_excluidos.*' => ['integer', 'exists:users,id'],
         ]);
 
-        $data['porcentaje'] = $data['tipo'] === 'cero' ? 0 : $data['porcentaje'];
+        $data['porcentaje'] = in_array($data['tipo'], ['cero', 'temporal'], true) ? 0 : $data['porcentaje'];
 
         if ($data['tipo'] === 'aumento' && (float) $data['porcentaje'] >= 100) {
             throw \Illuminate\Validation\ValidationException::withMessages(['porcentaje' => 'Un aumento debe ser menor a 100 % (se calcula como precio ÷ (1 − %)).']);

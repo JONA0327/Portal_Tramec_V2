@@ -317,6 +317,7 @@
                 var cero = tipo.value === 'cero' || tipo.value === 'temporal'; // sin porcentaje
                 bloquePct.hidden = cero;
                 pct.required = !cero;
+                pct.disabled = cero; // oculto y con 0 (min 0.01) daba "invalid form control is not focusable" y no dejaba guardar
             }
             tipo.addEventListener('change', alternarPorcentaje);
             alternarPorcentaje();

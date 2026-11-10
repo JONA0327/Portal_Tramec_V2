@@ -368,7 +368,7 @@
         .filtros-barra .filtro-buscar { flex: 1 1 200px; min-width: 0; }
         /* La caja de búsqueda se distingue a primera vista: contorno de color y fondo azul muy claro. */
         .filtros-barra .grupo-busqueda .filtro-buscar {
-            border: 2px solid var(--primary); background: #eef7ff; font-weight: 500;
+            border: 2px solid var(--primary); background: #eef7ff; font-weight: 500; border-radius: 999px; padding-left: 18px; padding-right: 18px;
         }
         .filtros-barra .grupo-busqueda .filtro-buscar::placeholder { color: #5b7a99; opacity: 1; }
         .filtros-barra .grupo-busqueda .filtro-buscar:focus { background: #fff; box-shadow: 0 0 0 3px rgba(17, 161, 253, .25); }

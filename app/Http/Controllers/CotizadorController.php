@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Cotizacion;
+use App\Models\CotizacionHistorial;
 use App\Models\CotizacionItem;
 use App\Models\ExistenciaOverride;
 use App\Models\PriceRule;
@@ -102,11 +103,57 @@ class CotizadorController extends Controller
         // Con más de una moneda cada PDF es una cotización distinta: el folio lleva el sufijo de la moneda.
         $folioPdf = count($grupos) > 1 ? ($folio !== '' ? "{$folio}-{$moneda}" : $moneda) : $folio;
 
+        $pdf = $this->renderPdf($cotizacion, $moneda, $grupos[$moneda], $folioPdf);
+
+        // "Guardar en el historial": foto de esta cotización (una por moneda) para volver a descargarla después.
+        if ($request->boolean('guardar_historial')) {
+            CotizacionHistorial::desde($cotizacion, $moneda, $grupos[$moneda], $folioPdf, $request->user()->id);
+        }
+
+        // Ya cotizado: se vacía del carrito lo de esta moneda; sin más renglones, la cotización queda nueva (folio nuevo).
+        $cotizacion->items()->whereIn('id', $grupos[$moneda]['items']->pluck('id'))->delete();
+        if (! $cotizacion->items()->exists()) {
+            $cotizacion->delete();
+        }
+
+        return $this->descarga($pdf, $folioPdf);
+    }
+
+    public function historial(Request $request): View
+    {
+        $q = CotizacionHistorial::with('user')->latest('id');
+
+        if (! $request->user()->isAdmin()) {
+            $q->where('user_id', $request->user()->id); // cada quien ve las suyas; el administrador, todas
+        }
+
+        return view('cotizador-historial', ['registros' => $q->paginate(20), 'verUsuario' => $request->user()->isAdmin()]);
+    }
+
+    public function historialPdf(Request $request, CotizacionHistorial $registro): Response
+    {
+        abort_unless($request->user()->isAdmin() || $registro->user_id === $request->user()->id, 404);
+
+        $c = $registro->reconstruir();
+
+        return $this->descarga($this->renderPdf($c, $registro->moneda, $c->gruposPorMoneda()[$registro->moneda], (string) $registro->folio), (string) $registro->folio);
+    }
+
+    public function historialEliminar(Request $request, CotizacionHistorial $registro): RedirectResponse
+    {
+        abort_unless($request->user()->isAdmin() || $registro->user_id === $request->user()->id, 404);
+        $registro->delete();
+
+        return back()->with('status', 'Cotización eliminada del historial.');
+    }
+
+    private function renderPdf(Cotizacion $cotizacion, string $moneda, array $grupo, string $folio): string
+    {
         $html = view('cotizador-pdf', [
             'c' => $cotizacion,
             'moneda' => $moneda,
-            'g' => $grupos[$moneda],
-            'folio' => $folioPdf,
+            'g' => $grupo,
+            'folio' => $folio,
             'logo' => $this->logoBase64(),
         ])->render();
 
@@ -115,9 +162,14 @@ class CotizadorController extends Controller
         $dompdf->setPaper('letter');
         $dompdf->render();
 
-        $archivo = 'Cotizacion '.preg_replace('/[^A-Za-z0-9._-]+/', '_', $folioPdf !== '' ? $folioPdf : 'sin-folio').'.pdf';
+        return $dompdf->output();
+    }
 
-        return response($dompdf->output(), 200, [
+    private function descarga(string $pdf, string $folio): Response
+    {
+        $archivo = 'Cotizacion '.preg_replace('/[^A-Za-z0-9._-]+/', '_', $folio !== '' ? $folio : 'sin-folio').'.pdf';
+
+        return response($pdf, 200, [
             'Content-Type' => 'application/pdf',
             'Content-Disposition' => 'attachment; filename="'.$archivo.'"',
         ]);

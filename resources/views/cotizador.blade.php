@@ -9,7 +9,7 @@
                 <div class="card">
                     <div class="card-header d-flex justify-content-between align-items-center flex-wrap">
                         <span>Carrito cotizador</span>
-                        <small class="text-muted">{{ $c->items->count() }} renglón(es) en el carrito</small>
+                        <span><a href="{{ route('cotizador.historial') }}" class="btn btn-sm btn-secondary">Historial de cotizaciones</a> <small class="text-muted ml-2">{{ $c->items->count() }} renglón(es) en el carrito</small></span>
                     </div>
 
                     <div class="card-body">
@@ -188,6 +188,13 @@
                                 <textarea id="terminos" name="terminos" class="form-control" rows="5" maxlength="3000" style="height: auto;">{{ old('terminos', $c->terminos) }}</textarea>
                             </div>
 
+                                <div class="form-check mb-2">
+                                    <label class="filtro-check">
+                                        <input type="checkbox" name="guardar_historial" value="1" checked>
+                                        Guardar esta cotización en el historial
+                                    </label>
+                                    <div class="form-text">Si no la marcas, solo se descarga el PDF. En ambos casos el carrito se vacía al descargar.</div>
+                                </div>
                                 <div class="d-flex flex-wrap mb-3" style="gap: 8px;">
                                     @foreach($grupos as $moneda => $g)
                                         <button type="submit" formaction="{{ route('cotizador.pdf', $moneda) }}" class="btn btn-primary">Guardar y descargar PDF ({{ $moneda }})</button>

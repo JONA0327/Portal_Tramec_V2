@@ -553,7 +553,7 @@
                     @if(auth()->user()->puedeCotizar())
                     @php $itemsCarrito = \App\Models\Cotizacion::where('user_id', auth()->id())->withCount('items')->first()?->items_count ?? 0; @endphp
                     <li>
-                        <a href="{{ route('cotizador') }}" class="{{ request()->routeIs('cotizador*') ? 'active' : '' }}">
+                        <a href="{{ route('cotizador') }}" class="{{ request()->routeIs('cotizador*') && ! request()->routeIs('cotizador.historial*') ? 'active' : '' }}">
                             <span class="icon-menu feather-icon">
                                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
                                     stroke="currentColor" stroke-width="2" stroke-linecap="round"
@@ -564,6 +564,19 @@
                                 </svg>
                             </span>
                             <span class="menu-text">Carrito cotizador @if($itemsCarrito > 0)<span class="badge bg-info text-dark" title="Renglones en el carrito">{{ $itemsCarrito }}</span>@endif</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{{ route('cotizador.historial') }}" class="{{ request()->routeIs('cotizador.historial*') ? 'active' : '' }}">
+                            <span class="icon-menu feather-icon">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                                    stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                    stroke-linejoin="round" class="feather feather-clock">
+                                    <circle cx="12" cy="12" r="10"></circle>
+                                    <polyline points="12 6 12 12 16 14"></polyline>
+                                </svg>
+                            </span>
+                            <span class="menu-text">Historial de cotizaciones</span>
                         </a>
                     </li>
                     @endif

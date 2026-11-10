@@ -96,6 +96,14 @@
         lista.addEventListener('change', function () { if (lista.value) { texto.value = lista.value; } texto.focus(); });
     }
 
+    // Tras descargar el PDF el carrito ya se vació en el servidor: se recarga la página para mostrarlo así.
+    form.addEventListener('submit', function (e) {
+        var b = e.submitter;
+        if (b && /\/cotizador\/pdf\//.test(b.getAttribute('formaction') || '')) {
+            setTimeout(function () { window.location.href = form.getAttribute('data-inicio') || window.location.pathname; }, 2500);
+        }
+    });
+
     // Dos pasos en la misma página: primero el carrito, luego los datos de la cotización y los PDF.
     form.addEventListener('click', function (e) {
         var b = e.target.closest ? e.target.closest('[data-paso]') : null;

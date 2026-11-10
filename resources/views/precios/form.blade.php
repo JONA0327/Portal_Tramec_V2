@@ -31,11 +31,12 @@
                                     <div class="col-md-6 mb-3">
                                         <label class="form-label" for="tipo">Tipo</label>
                                         <select id="tipo" name="tipo" class="form-control">
-                                            <option value="descuento" @selected(old('tipo', $rule->tipo) === 'descuento')>Descuento (baja el precio)</option>
-                                            <option value="aumento" @selected(old('tipo', $rule->tipo) === 'aumento')>Aumento (precio ÷ (1 − %))</option>
+                                            @foreach(\App\Models\PriceRule::TIPOS as $valor => $etiqueta)
+                                                <option value="{{ $valor }}" @selected(old('tipo', $rule->tipo) === $valor)>{{ $etiqueta }}</option>
+                                            @endforeach
                                         </select>
                                     </div>
-                                    <div class="col-md-6 mb-3">
+                                    <div class="col-md-6 mb-3" id="bloque-porcentaje">
                                         <label class="form-label" for="porcentaje">Porcentaje</label>
                                         <div class="input-group">
                                             <input type="number" id="porcentaje" name="porcentaje" value="{{ old('porcentaje', $rule->porcentaje) }}" class="form-control" step="0.01" min="0.01" max="100" required>
@@ -113,6 +114,24 @@
                                 </div>
                                 </div>
                             </div>
+
+                            <div class="mb-3">
+                                    <label class="form-label" for="excepciones-filtro">Excepciones: usuarios que NO reciben esta regla</label>
+                                    <input type="search" id="excepciones-filtro" class="form-control form-control-sm mb-1" placeholder="Filtrar lista…" autocomplete="off">
+                                    @php $selExc = array_map('intval', old('usuarios_excluidos', $rule->usuarios_excluidos ?? [])); @endphp
+                                    <div id="excepciones-lista" class="lista-casillas border rounded" style="max-height: 220px; overflow-y: auto;">
+                                        @foreach($users as $u)
+                                            <label data-t="{{ mb_strtolower($u->first_name.' '.$u->last_name.' '.$u->email) }}">
+                                                <input type="checkbox" name="usuarios_excluidos[]" value="{{ $u->id }}" @checked(in_array($u->id, $selExc, true))>
+                                                <span>{{ $u->first_name }} {{ $u->last_name }} — {{ $u->email }}</span>
+                                            </label>
+                                        @endforeach
+                                    </div>
+                                    <div class="form-text">
+                                        Con "Mostrar en $0.00": marca aquí a quienes <strong>sí</strong> verán el precio real (como la casilla
+                                        "Ver precios C2000 Plus" de v1). En un descuento o aumento, quienes marques no lo reciben.
+                                    </div>
+                                </div>
 
                             <div class="form-check mb-4">
                                 <input class="form-check-input" type="checkbox" name="activo" id="activo" value="1" @checked(old('activo', $rule->activo))>
@@ -230,6 +249,23 @@
 
             buscar.addEventListener('input', refresh);
             campo.addEventListener('change', refresh);
+
+            // "Mostrar en $0.00" no usa porcentaje
+            var tipo = document.getElementById('tipo'), bloquePct = document.getElementById('bloque-porcentaje'), pct = document.getElementById('porcentaje');
+            function alternarPorcentaje() {
+                var cero = tipo.value === 'cero';
+                bloquePct.hidden = cero;
+                pct.required = !cero;
+            }
+            tipo.addEventListener('change', alternarPorcentaje);
+            alternarPorcentaje();
+
+            document.getElementById('excepciones-filtro').addEventListener('input', function () {
+                var q = this.value.toLowerCase();
+                Array.prototype.forEach.call(document.getElementById('excepciones-lista').children, function (l) {
+                    l.hidden = q.trim() !== '' && !coincide(l.getAttribute('data-t'), q);
+                });
+            });
 
             document.getElementById('usuarios-filtro').addEventListener('input', function () {
                 var q = this.value.toLowerCase();

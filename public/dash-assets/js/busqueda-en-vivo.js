@@ -61,6 +61,7 @@
             if (!nuevo) { return; } // respuesta inesperada: se deja lo que ya había, sin recargar ni mover el cursor
 
             cont.innerHTML = nuevo.innerHTML;
+            document.dispatchEvent(new Event('resultados:actualizados')); // p. ej. recalcula la selección masiva
             if (window.history && history.replaceState) { history.replaceState(null, '', url); }
 
             // La caja está fuera de #resultados y no se toca; por si algo le quitó el foco, se devuelve.

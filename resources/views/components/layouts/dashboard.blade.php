@@ -251,6 +251,9 @@
              reemplaza al ".page-title-wrapper" que quedaba siempre vacío arriba del
              contenido. El header es blanco (no navy -- ver .header-right en style.css,
              así se ve el tema siempre), por eso el texto va oscuro, no blanco. --}}
+        .header-estado { display: flex; align-items: center; padding: 0 24px; font-size: 12px; color: var(--muted, #6c757d); white-space: nowrap; }
+        .header-estado a { color: inherit; }
+        @media (max-width: 767px) { .header-estado { display: none; } }
         .header-section-title {
             margin: 0 0 0 18px;
             padding-left: 18px;
@@ -362,13 +365,30 @@
            sola en dos o más en laptops chicas y apila todo a ancho completo en teléfono. */
         .filtros-barra { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 1.25rem; }
         .filtros-barra .form-control { flex: 1 1 170px; min-width: 150px; max-width: none; width: auto; }
-        .filtros-barra .filtro-buscar { flex: 2 1 260px; }
+        .filtros-barra .filtro-buscar { flex: 1 1 200px; min-width: 0; }
+        /* La caja de búsqueda se distingue a primera vista: contorno de color y fondo azul muy claro. */
+        .filtros-barra .grupo-busqueda .filtro-buscar {
+            border: 2px solid var(--primary); background: #eef7ff; font-weight: 500;
+        }
+        .filtros-barra .grupo-busqueda .filtro-buscar::placeholder { color: #5b7a99; opacity: 1; }
+        .filtros-barra .grupo-busqueda .filtro-buscar:focus { background: #fff; box-shadow: 0 0 0 3px rgba(17, 161, 253, .25); }
+        /* Limpiar: botón de color (rojo suave) para que no parezca texto suelto. */
+        .sel-item, .sel-todos { width: 16px; height: 16px; min-width: 16px; padding: 0; margin: 0; cursor: pointer; } /* el tema fija input{height:40px} */
+        /* Bloquear (productos nuevos): ámbar, para distinguirlo de Registrar (azul) y Dar de baja (rojo). */
+        .btn-bloquear { background: #fff4de; color: #a8650a; border: 1px solid #f4cf8c; }
+        .btn-bloquear:hover, .btn-bloquear:focus { background: #fbe3b4; color: #8a5208; border-color: #eab86a; }
+        .btn-limpiar { background: #fdecea; color: #c0392b; border: 1px solid #f5b7b1; }
+        .btn-limpiar:hover, .btn-limpiar:focus { background: #f8d4d0; color: #a93226; border-color: #eba39c; }
+        /* Las casillas (agrupar, ver ocultos) van solas en la línea de abajo. */
+        .filtros-barra .filtros-opciones { flex: 1 0 100%; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 24px; }
+        .filtros-barra .grupo-busqueda { display: flex; align-items: center; gap: 10px; flex: 2 1 340px; min-width: 0; }
         .filtros-barra .filtro-check { display: flex; align-items: center; gap: 8px; margin: 0; cursor: pointer; user-select: none; white-space: nowrap; }
         .filtros-barra .filtro-check input { flex: none; width: 16px; height: 16px; min-width: 16px; padding: 0; margin: 0; }
         .filtros-barra .btn { flex: 0 0 auto; white-space: nowrap; }
         .form-control[type="file"] { height: auto; padding: 9px 10px; } /* el tema fija input{height:40px} */
         @media (max-width: 575px) {
-            .filtros-barra .form-control, .filtros-barra .filtro-buscar { flex: 1 1 100%; }
+            .filtros-barra .form-control, .filtros-barra .grupo-busqueda { flex: 1 1 100%; }
+            .filtros-barra .grupo-busqueda .filtro-buscar { flex: 1 1 auto; }
             .filtros-barra .filtro-check { flex: 1 1 100%; }
             .filtros-barra .btn { flex: 1 1 auto; }
         }
@@ -422,6 +442,10 @@
                             <h1 class="header-section-title">{{ $currentSectionTitle }}</h1>
                         @endif
                     </div>
+                    @isset($estado)
+                        {{-- Estado de la sección (Actualizado… · En vivo): vive en la barra superior para dejar más espacio a la tabla. --}}
+                        <div class="header-estado">{{ $estado }}</div>
+                    @endisset
                 </div>
             </div>
         </header>
@@ -523,6 +547,23 @@
                             </span>
                             <span class="menu-text">Existencias</span>
                             <svg class="menu-chevron" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                        </a>
+                    </li>
+                    @endif
+                    @if(auth()->user()->puedeCotizar())
+                    @php $itemsCarrito = \App\Models\Cotizacion::where('user_id', auth()->id())->withCount('items')->first()?->items_count ?? 0; @endphp
+                    <li>
+                        <a href="{{ route('cotizador') }}" class="{{ request()->routeIs('cotizador*') ? 'active' : '' }}">
+                            <span class="icon-menu feather-icon">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                                    stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                    stroke-linejoin="round" class="feather feather-shopping-cart">
+                                    <circle cx="9" cy="21" r="1"></circle>
+                                    <circle cx="20" cy="21" r="1"></circle>
+                                    <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+                                </svg>
+                            </span>
+                            <span class="menu-text">Cotizador @if($itemsCarrito > 0)<span class="badge bg-info text-dark" title="Renglones en el carrito">{{ $itemsCarrito }}</span>@endif</span>
                         </a>
                     </li>
                     @endif

@@ -25,7 +25,7 @@
                             <input type="text" name="buscar" value="{{ $buscar }}" class="form-control filtro-buscar" placeholder="Buscar por código o nombre..." autocomplete="off">
                             <button type="submit" class="btn btn-primary">Buscar</button>
                             @if($buscar !== '')
-                                <a href="{{ route('bajas') }}" class="btn btn-outline-secondary">Limpiar</a>
+                                <a href="{{ route('bajas') }}" class="btn btn-limpiar">Limpiar</a>
                             @endif
                         </form>
 

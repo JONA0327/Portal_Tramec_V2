@@ -30,7 +30,13 @@ class PriceRule extends Model
         9 => 'CANAL ENTRANTE (BM, IIPSA, STM)',
     ];
 
-    protected $fillable = ['nombre', 'tipo', 'porcentaje', 'buscar', 'campo', 'incluidos', 'columnas', 'niveles', 'usuarios', 'activo'];
+    public const TIPOS = [
+        'descuento' => 'Descuento (baja el precio)',
+        'aumento' => 'Aumento (precio ÷ (1 − %))',
+        'cero' => 'Mostrar en $0.00 (ocultar el precio)',
+    ];
+
+    protected $fillable = ['nombre', 'tipo', 'porcentaje', 'buscar', 'campo', 'incluidos', 'columnas', 'niveles', 'usuarios', 'usuarios_excluidos', 'activo'];
 
     protected function casts(): array
     {
@@ -39,6 +45,7 @@ class PriceRule extends Model
             'columnas' => 'array',
             'niveles' => 'array',
             'usuarios' => 'array',
+            'usuarios_excluidos' => 'array',
             'incluidos' => 'array',
             'activo' => 'boolean',
         ];
@@ -49,9 +56,16 @@ class PriceRule extends Model
         return empty($this->niveles) || ($level !== null && in_array((int) $level, array_map('intval', $this->niveles), true));
     }
 
-    /** Nivel Y usuario: si la regla lista usuarios, solo esos; si lista niveles, solo esos; ambos vacíos = todos. */
+    /**
+     * Nivel Y usuario: si la regla lista usuarios, solo esos; si lista niveles, solo esos; ambos vacíos = todos.
+     * Los usuarios en "excepciones" (usuarios_excluidos) nunca reciben la regla.
+     */
     public function visibleTo(?User $user): bool
     {
+        if ($user !== null && in_array($user->id, array_map('intval', $this->usuarios_excluidos ?? []), true)) {
+            return false;
+        }
+
         return $this->visibleToLevel($user?->level)
             && (empty($this->usuarios) || ($user !== null && in_array($user->id, array_map('intval', $this->usuarios), true)));
     }
@@ -94,6 +108,11 @@ class PriceRule extends Model
      */
     public function apply(float $price): float
     {
+        // "Mostrar en $0.00" (como el filtro de la serie C2000 Plus en v1): el precio real no se ve.
+        if ($this->tipo === 'cero') {
+            return 0.0;
+        }
+
         $base = 1 - $this->porcentaje / 100;
 
         if ($this->tipo === 'descuento') {

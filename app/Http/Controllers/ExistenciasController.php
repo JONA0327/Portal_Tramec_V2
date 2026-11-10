@@ -43,6 +43,30 @@ class ExistenciasController extends Controller
 {
     private const PER_PAGE = 25; // predeterminado; el usuario puede elegir 10/25/50/100 (ver PorPagina)
 
+    /**
+     * "Agrupar por modelo" se guarda en el usuario (users.agrupar_existencias) y vuelve a aplicarse en la siguiente
+     * visita, aunque se cierre la sesión. Al enviar el formulario de filtros (campo oculto "filtros") manda lo que
+     * está marcado y se guarda; al entrar sin filtros (menú, enlaces) se usa lo guardado.
+     */
+    private function preferenciaAgrupar(Request $request): bool
+    {
+        $usuario = $request->user();
+        $guarda = \Illuminate\Support\Facades\Schema::hasColumn('users', 'agrupar_existencias'); // por si falta migrar
+
+        if (! $request->has('filtros')) {
+            return $guarda && $usuario ? (bool) $usuario->agrupar_existencias : $request->boolean('agrupar');
+        }
+
+        $agrupar = $request->boolean('agrupar');
+
+        if ($guarda && $usuario && (bool) $usuario->agrupar_existencias !== $agrupar) {
+            \Illuminate\Support\Facades\DB::table('users')->where('id', $usuario->id)->update(['agrupar_existencias' => $agrupar]);
+            $usuario->agrupar_existencias = $agrupar;
+        }
+
+        return $agrupar;
+    }
+
     public function index(Request $request, StockLevelService $stockLevels, StockService $stock, PriceAdjuster $adjuster): View
     {
         $buscar = trim((string) $request->query('buscar', ''));
@@ -54,7 +78,7 @@ class ExistenciasController extends Controller
         }
         // Clasificación = campo "Tipo de producto" (products.kind_of_product), como en v1.
         $clasificacion = trim((string) $request->query('clasificacion', ''));
-        $agrupar = $request->boolean('agrupar'); // un renglón por modelo, con sus almacenes aparte
+        $agrupar = $this->preferenciaAgrupar($request); // un renglón por modelo, con sus almacenes aparte (se recuerda por usuario)
 
         if (! $request->user()->isAdmin() && $estado === 'ocultos') {
             $estado = 'con_existencia'; // los ocultos son de administración
@@ -148,7 +172,7 @@ class ExistenciasController extends Controller
                 'oem' => $precios?->price4,
                 'usuario_final' => $precios?->price5,
                 'precio_lista' => $precios?->list_price,
-            ], $codigo, $nombre);
+            ], $codigo, $precios?->description_short ?: $nombre); // las reglas filtran por código y descripción (lo que ve el usuario)
 
             return [
                 'empresa' => $empresaCodigo,

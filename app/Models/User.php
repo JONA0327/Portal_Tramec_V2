@@ -74,6 +74,12 @@ class User extends Authenticatable
         };
     }
 
+    /** Carrito y Cotizador: administrador (0) y equipo Tramec (1, 7 y 8). */
+    public function puedeCotizar(): bool
+    {
+        return $this->level !== null && in_array((int) $this->level, [0, 1, 7, 8], true);
+    }
+
     /** Clientes finales de canal (2 a 6): ven solo su costo y el precio de lista, sin avisos internos de catálogo. */
     public function esCliente(): bool
     {

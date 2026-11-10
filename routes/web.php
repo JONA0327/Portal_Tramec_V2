@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\BajasController;
+use App\Http\Controllers\CotizadorController;
 use App\Http\Controllers\ExistenciasController;
 use App\Http\Controllers\ManualesController;
 use App\Http\Controllers\PriceRulesController;
@@ -31,6 +32,16 @@ Route::middleware(['auth', 'verified', 'can:admin'])->prefix('precios')->name('p
     Route::put('/{priceRule}', [PriceRulesController::class, 'update'])->name('update');
     Route::patch('/{priceRule}/activar', [PriceRulesController::class, 'toggle'])->name('toggle');
     Route::delete('/{priceRule}', [PriceRulesController::class, 'destroy'])->name('destroy');
+});
+
+// Carrito de cotización y Cotizador: administrador y equipo Tramec (ver User::puedeCotizar()).
+Route::middleware(['auth', 'verified', 'can:cotizar'])->prefix('cotizador')->name('cotizador')->group(function () {
+    Route::get('/', [CotizadorController::class, 'index']);
+    Route::post('/agregar', [CotizadorController::class, 'agregar'])->name('.agregar');
+    Route::post('/guardar', [CotizadorController::class, 'guardar'])->name('.guardar');
+    Route::post('/pdf/{moneda}', [CotizadorController::class, 'pdf'])->name('.pdf');
+    Route::delete('/items/{item}', [CotizadorController::class, 'quitar'])->name('.quitar');
+    Route::delete('/', [CotizadorController::class, 'vaciar'])->name('.vaciar');
 });
 
 // Manuales y catálogos (enlaces a tramec.mx/descargas).
@@ -80,6 +91,7 @@ Route::get('/productos', [ProductsController::class, 'index'])
 Route::middleware(['auth', 'verified', 'nivel:productos', 'can:admin'])->prefix('productos')->name('products.')->group(function () {
     Route::post('/registrar', [ProductsController::class, 'register'])->name('register');
     Route::post('/bloquear', [ProductsController::class, 'block'])->name('block');
+    Route::post('/masivo', [ProductsController::class, 'masivo'])->name('masivo');
     Route::get('/{product}', [ProductsController::class, 'show'])->name('show');
     Route::get('/{product}/editar', [ProductsController::class, 'edit'])->name('edit');
     Route::put('/{product}', [ProductsController::class, 'update'])->name('update');

@@ -10,35 +10,34 @@
         // Columnas de precio según el nivel del usuario (ver User::columnasPrecio()); acciones solo administrador.
         $columnasPrecio = auth()->user()->columnasPrecio();
         $esAdmin = auth()->user()->isAdmin();
+        $puedeCotizar = auth()->user()->puedeCotizar(); // administrador + equipo Tramec: carrito de cotización
+        $seleccion = $esAdmin || $puedeCotizar;
         $puedeCopiar = auth()->user()->puedeCopiarPrecios();
         $verId = in_array((int) auth()->user()->level, [0, 1, 7], true); // v1: el ID del ERP solo para los niveles internos
     @endphp
+
+    <x-slot name="estado">
+        @if($lastSyncAt)
+        Catálogo actualizado: {{ \Illuminate\Support\Carbon::parse($lastSyncAt)->locale('es')->diffForHumans() }}
+        @else
+        Catálogo aún sin sincronizar
+        @endif
+        @if(! $cliente && $counts['nuevo'] > 0)
+        &nbsp;·&nbsp;<a href="{{ route('products', ['estado' => 'nuevo']) }}" class="text-info">🆕 {{ $counts['nuevo'] }} nuevos</a>
+        @endif
+        @if(! $cliente && $counts['advertencia'] > 0)
+        &nbsp;·&nbsp;<a href="{{ route('products', ['estado' => 'advertencia']) }}" class="text-warning">⚠ {{ $counts['advertencia'] }} sin emparejar</a>
+        @endif
+        &nbsp;·&nbsp;<span id="live-status" class="text-muted"
+        @if(! config('broadcasting.connections.pusher.key')) title="Falta configurar PUSHER_APP_KEY / PUSHER_APP_CLUSTER y BROADCAST_CONNECTION=pusher en el .env del servidor" @endif>
+        {{ config('broadcasting.connections.pusher.key') ? '○ Conectando…' : '○ Tiempo real desactivado' }}
+        </span>
+    </x-slot>
 
     <div class="container-fluid">
         <div class="row">
             <div class="col-12">
                 <div class="card">
-                    <div class="card-header d-flex justify-content-between align-items-center flex-wrap">
-                        <span>Productos</span>
-                        <small class="text-muted">
-                            @if($lastSyncAt)
-                                Catálogo actualizado: {{ \Illuminate\Support\Carbon::parse($lastSyncAt)->locale('es')->diffForHumans() }}
-                            @else
-                                Catálogo aún sin sincronizar
-                            @endif
-                            @if(! $cliente && $counts['nuevo'] > 0)
-                                &nbsp;·&nbsp;<a href="{{ route('products', ['estado' => 'nuevo']) }}" class="text-info">🆕 {{ $counts['nuevo'] }} nuevos</a>
-                            @endif
-                            @if(! $cliente && $counts['advertencia'] > 0)
-                                &nbsp;·&nbsp;<a href="{{ route('products', ['estado' => 'advertencia']) }}" class="text-warning">⚠ {{ $counts['advertencia'] }} sin emparejar</a>
-                            @endif
-                            &nbsp;·&nbsp;<span id="live-status" class="text-muted"
-                                @if(! config('broadcasting.connections.pusher.key')) title="Falta configurar PUSHER_APP_KEY / PUSHER_APP_CLUSTER y BROADCAST_CONNECTION=pusher en el .env del servidor" @endif>
-                                {{ config('broadcasting.connections.pusher.key') ? '○ Conectando…' : '○ Tiempo real desactivado' }}
-                            </span>
-                        </small>
-                    </div>
-
                     <div class="card-body">
                         <x-stock-status :last-sync="$lastSyncAt" />
                         @if(session('status'))
@@ -73,10 +72,12 @@
                                     @endforeach
                                     <option value="__sin" @selected($clasificacion === '__sin')>Sin clasificación</option>
                                 </select>
-                                <input type="text" name="buscar" id="buscar-input" value="{{ $buscar }}" class="form-control filtro-buscar"
-                                    placeholder="Buscar por código o descripción..." autocomplete="off">
-                                <button type="submit" class="btn btn-primary">Buscar</button>
-                                    <a href="{{ route('products') }}" class="btn btn-outline-secondary">Limpiar</a>
+                                <div class="grupo-busqueda">
+                                    <input type="text" name="buscar" id="buscar-input" value="{{ $buscar }}" class="form-control filtro-buscar"
+                                        placeholder="Buscar por código o descripción..." autocomplete="off">
+                                    <button type="submit" class="btn btn-primary">Buscar</button>
+                                    <a href="{{ route('products') }}" class="btn btn-limpiar">Limpiar</a>
+                                </div>
                             </form>
 
                         <div id="resultados">
@@ -92,10 +93,27 @@
                                 @endif
                             </p>
                         @else
+                            @if($seleccion)
+                                {{-- Selección de varios: carrito de cotización (administrador y equipo Tramec) y, solo administrador, registro y
+                                     baja masivos. Un solo formulario (las casillas de cada fila lo usan con form="form-masivo", no se puede anidar);
+                                     el envío normal agrega al carrito y los botones de administrador cambian la acción con formaction. --}}
+                                <form id="form-masivo" method="POST" action="{{ route('cotizador.agregar') }}">@csrf</form>
+                                <div class="d-flex flex-wrap align-items-center mb-2" style="gap: 8px;">
+                                    <span class="text-muted">Seleccionados: <strong id="sel-contador">0</strong></span>
+                                    <button type="submit" form="form-masivo" class="btn btn-sm btn-primary" data-carrito disabled
+                                        title="Agrega lo marcado al carrito y ábrelo en Cotizador">Agregar al carrito de cotización</button>
+                                    @if($esAdmin)
+                                        <button type="submit" form="form-masivo" formaction="{{ route('products.masivo') }}" name="accion" value="registrar" class="btn btn-sm btn-info" data-masivo="registrar" disabled>Registrar seleccionados</button>
+                                        <button type="submit" form="form-masivo" formaction="{{ route('products.masivo') }}" name="accion" value="baja" class="btn btn-sm btn-danger" data-masivo="baja" disabled
+                                            data-confirm="¿Dar de baja los {n} producto(s) seleccionados? Salen de Productos y de Existencias y, aunque CONTPAQi los siga enviando, el portal los ignora. Puedes reactivarlos desde Bajas.">Dar de baja seleccionados</button>
+                                    @endif
+                                </div>
+                            @endif
                             <div class="table-responsive">
                                 <table class="table table-bordered table-striped">
                                     <thead>
                                         <tr>
+                                            @if($seleccion)<th style="width: 34px;"><input type="checkbox" class="sel-todos" aria-label="Seleccionar todos los de esta página"></th>@endif
                                             @if($verId)<th>ID</th>@endif
                                             <th>Código</th>
                                             <th>Descripción</th>
@@ -113,6 +131,11 @@
                                                  en vivo (Pusher) va con la empresa. Las filas "advertencia" no
                                                  tienen empresa del ERP (no se encontró match), no reciben updates en vivo. --}}
                                             <tr @if($row['erp_empresa']) data-product-id="{{ $row['erp_empresa'].':'.$row['erp_id'] }}" @endif>
+                                                @if($seleccion)
+                                                    <td><input type="checkbox" class="sel-item" form="form-masivo" name="items[]"
+                                                        value="{{ $row['erp_empresa'] ? 'erp:'.$row['erp_empresa'].':'.$row['erp_id'] : 'loc:'.$row['local_id'] }}"
+                                                        data-estado="{{ $row['estado'] }}" aria-label="Seleccionar {{ $row['codigo'] }}"></td>
+                                                @endif
                                                 @if($verId)
                                                 <td class="col-id">
                                                     @if($row['estado'] === 'nuevo')
@@ -175,7 +198,7 @@
                                                             @csrf
                                                             <input type="hidden" name="erp_empresa" value="{{ $row['erp_empresa'] }}">
                                                             <input type="hidden" name="erp_id" value="{{ $row['erp_id'] }}">
-                                                            <button type="submit" class="btn btn-sm btn-outline-secondary">Bloquear</button>
+                                                            <button type="submit" class="btn btn-sm btn-bloquear">Bloquear</button>
                                                         </form>
                                                         <form method="POST" action="{{ route('bajas.store') }}" class="d-inline"
                                                         onsubmit="return confirm('¿Dar de baja este producto? Sale de Productos y de Existencias (todos los almacenes) y, aunque CONTPAQi lo siga enviando, el portal lo ignora. Puedes reactivarlo desde Bajas.')">
@@ -245,5 +268,8 @@
 
     @include('partials.copy-price')
     <script src="{{ asset('dash-assets/js/busqueda-en-vivo.js') }}" defer></script>
+    @if($seleccion)
+        <script src="{{ asset('dash-assets/js/seleccion-masiva.js') }}" defer></script>
+    @endif
 
 </x-layouts.dashboard>

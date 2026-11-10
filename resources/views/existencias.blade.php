@@ -11,33 +11,31 @@
         $columnasPrecio = auth()->user()->columnasPrecio();
         $puedeCopiar = auth()->user()->puedeCopiarPrecios();
         $esAdmin = auth()->user()->isAdmin();
+        $puedeCotizar = auth()->user()->puedeCotizar(); // administrador + equipo Tramec: carrito de cotización
     @endphp
+
+    <x-slot name="estado">
+        @if($lastSyncAt)
+        Actualizado: {{ \Illuminate\Support\Carbon::parse($lastSyncAt)->locale('es')->diffForHumans() }}
+        @else
+        Todavía sin sincronizar
+        @endif
+        @if($esAdmin && $counts['ocultos'] > 0)
+        &nbsp;·&nbsp;<a href="{{ route('existencias', ['estado' => 'ocultos']) }}" class="text-muted">{{ $counts['ocultos'] }} ocultos</a>
+        @endif
+        @if($esAdmin && $counts['bajas'] > 0)
+        &nbsp;·&nbsp;<a href="{{ route('bajas') }}" class="text-muted">{{ $counts['bajas'] }} en bajas</a>
+        @endif
+        &nbsp;·&nbsp;<span id="live-status" class="text-muted"
+        @if(! config('broadcasting.connections.pusher.key')) title="Falta configurar PUSHER_APP_KEY / PUSHER_APP_CLUSTER y BROADCAST_CONNECTION=pusher en el .env del servidor" @endif>
+        {{ config('broadcasting.connections.pusher.key') ? '○ Conectando…' : '○ Tiempo real desactivado' }}
+        </span>
+    </x-slot>
 
     <div class="container-fluid">
         <div class="row">
             <div class="col-12">
                 <div class="card">
-                    <div class="card-header d-flex justify-content-between align-items-center flex-wrap">
-                        <span>Existencias</span>
-                        <small class="text-muted">
-                            @if($lastSyncAt)
-                                Actualizado: {{ \Illuminate\Support\Carbon::parse($lastSyncAt)->locale('es')->diffForHumans() }}
-                            @else
-                                Todavía sin sincronizar
-                            @endif
-                            @if($esAdmin && $counts['ocultos'] > 0)
-                                &nbsp;·&nbsp;<a href="{{ route('existencias', ['estado' => 'ocultos']) }}" class="text-muted">{{ $counts['ocultos'] }} ocultos</a>
-                            @endif
-                            @if($esAdmin && $counts['bajas'] > 0)
-                                &nbsp;·&nbsp;<a href="{{ route('bajas') }}" class="text-muted">{{ $counts['bajas'] }} en bajas</a>
-                            @endif
-                            &nbsp;·&nbsp;<span id="live-status" class="text-muted"
-                                @if(! config('broadcasting.connections.pusher.key')) title="Falta configurar PUSHER_APP_KEY / PUSHER_APP_CLUSTER y BROADCAST_CONNECTION=pusher en el .env del servidor" @endif>
-                                {{ config('broadcasting.connections.pusher.key') ? '○ Conectando…' : '○ Tiempo real desactivado' }}
-                            </span>
-                        </small>
-                    </div>
-
                     <div class="card-body">
                         <x-stock-status :last-sync="$lastSyncAt" />
                         @if(session('status'))
@@ -49,6 +47,7 @@
                             {{-- Avanzado: empresa + almacén + estado + palabras (en cualquier orden); busca solo al
                                  pulsar "Buscar" o Enter. "Agrupar por modelo" junta los almacenes de cada modelo en un renglón. --}}
                             <form method="GET" action="{{ route('existencias') }}" class="filtros-barra">
+                                <input type="hidden" name="filtros" value="1">{{-- distingue "filtros enviados" de "entrada sin filtros" (ver preferenciaAgrupar) --}}
                                 <input type="hidden" name="por_pagina" value="{{ $perPage }}">
                                 <select name="empresa" class="form-control" aria-label="Empresa">
                                     <option value="">Todas las empresas</option>
@@ -69,24 +68,28 @@
                                     @endforeach
                                     <option value="__sin" @selected($clasificacion === '__sin')>Sin clasificación</option>
                                 </select>
-                                <input type="text" name="buscar" id="buscar-input" value="{{ $buscar }}" class="form-control filtro-buscar"
-                                    placeholder="Buscar por código o descripción..." autocomplete="off">
-                                <label class="filtro-check">
-                                    <input type="checkbox" name="agrupar" value="1" @checked($agrupar)>
-                                    Agrupar por modelo
-                                </label>
-                                @if($esAdmin)
-                                    {{-- Solo el administrador (nivel 0): las filas ocultas a mano se ven aparte, con esta casilla. --}}
-                                    <label class="filtro-check">
-                                        <input type="checkbox" name="estado" value="ocultos" @checked($estado === 'ocultos')>
-                                        Ver ocultos
-                                    </label>
-                                @endif
-                                <button type="submit" class="btn btn-primary">Buscar</button>
-                                    <a href="{{ route('existencias') }}" class="btn btn-outline-secondary">Limpiar</a>
+                                <div class="grupo-busqueda">
+                                    <input type="text" name="buscar" id="buscar-input" value="{{ $buscar }}" class="form-control filtro-buscar"
+                                        placeholder="Buscar por código o descripción..." autocomplete="off">
+                                    <button type="submit" class="btn btn-primary">Buscar</button>
+                                    <a href="{{ route('existencias') }}" class="btn btn-limpiar">Limpiar</a>
+                                </div>
                                 @can('admin')
                                     <button type="button" class="btn btn-secondary ml-auto" data-toggle="modal" data-target="#modalExcel">Cargar Excel</button>
                                 @endcan
+                                <div class="filtros-opciones">
+                                    <label class="filtro-check">
+                                        <input type="checkbox" name="agrupar" value="1" @checked($agrupar)>
+                                        Agrupar por modelo
+                                    </label>
+                                    @if($esAdmin)
+                                        {{-- Solo el administrador (nivel 0): las filas ocultas a mano se ven aparte, con esta casilla. --}}
+                                        <label class="filtro-check">
+                                            <input type="checkbox" name="estado" value="ocultos" @checked($estado === 'ocultos')>
+                                            Ver ocultos
+                                        </label>
+                                    @endif
+                                </div>
                             </form>
 
                             @can('admin')
@@ -133,11 +136,20 @@
                                 @endif
                             </p>
                         @else
+                            @if($puedeCotizar)
+                                <form id="form-masivo" method="POST" action="{{ route('cotizador.agregar') }}">@csrf</form>
+                                <div class="d-flex flex-wrap align-items-center mb-2" style="gap: 8px;">
+                                    <span class="text-muted">Seleccionados: <strong id="sel-contador">0</strong></span>
+                                    <button type="submit" form="form-masivo" class="btn btn-sm btn-primary" data-carrito disabled
+                                        title="Agrega lo marcado al carrito y ábrelo en Cotizador">Agregar al carrito de cotización</button>
+                                </div>
+                            @endif
                             @if($agrupar)
                             <div class="table-responsive">
                                 <table class="table table-bordered table-striped">
                                     <thead>
                                         <tr>
+                                            @if($puedeCotizar)<th style="width: 34px;"><input type="checkbox" class="sel-todos" aria-label="Seleccionar todos los de esta página"></th>@endif
                                             <th>Código</th>
                                             <th>Descripción</th>
                                             <th>Empresa</th>
@@ -151,6 +163,10 @@
                                     <tbody>
                                         @foreach($levels as $row)
                                             <tr>
+                                                @if($puedeCotizar)
+                                                    @php $alm0 = collect($row['almacenes'])->firstWhere(fn ($x) => $x['cantidad'] > 0) ?? $row['almacenes'][0]; @endphp
+                                                    <td><input type="checkbox" class="sel-item" form="form-masivo" name="items[]" value="ex:{{ $row['empresa'] }}:{{ $alm0['id_producto'] }}:{{ $alm0['id_almacen'] }}" aria-label="Seleccionar {{ $row['codigo'] }}"></td>
+                                                @endif
                                                 <td class="col-codigo">{{ $row['codigo'] }}</td>
                                                 <td class="col-nombre">{{ $row['descripcion'] }}</td>
                                                 <td>{{ $row['empresa'] }}</td>
@@ -192,6 +208,7 @@
                                 <table class="table table-bordered table-striped">
                                     <thead>
                                         <tr>
+                                            @if($puedeCotizar)<th style="width: 34px;"><input type="checkbox" class="sel-todos" aria-label="Seleccionar todos los de esta página"></th>@endif
                                             <th>Código</th>
                                             <th>Descripción</th>
                                             <th>Empresa</th>
@@ -206,6 +223,9 @@
                                     <tbody id="existencias-tbody">
                                         @foreach($levels as $row)
                                             <tr data-level-id="{{ $row['empresa'].':'.$row['id_producto'].':'.$row['id_almacen'] }}">
+                                                @if($puedeCotizar)
+                                                    <td><input type="checkbox" class="sel-item" form="form-masivo" name="items[]" value="ex:{{ $row['empresa'] }}:{{ $row['id_producto'] }}:{{ $row['id_almacen'] }}" aria-label="Seleccionar {{ $row['codigo'] }} en {{ $row['almacen'] }}"></td>
+                                                @endif
                                                 <td class="col-codigo">{{ $row['codigo'] }}</td>
                                                 <td class="col-nombre">{{ $row['descripcion'] }}</td>
                                                 <td>{{ $row['empresa'] }}</td>
@@ -315,5 +335,8 @@
     @endif
 
     <script src="{{ asset('dash-assets/js/busqueda-en-vivo.js') }}" defer></script>
+    @if($puedeCotizar)
+        <script src="{{ asset('dash-assets/js/seleccion-masiva.js') }}" defer></script>
+    @endif
 
 </x-layouts.dashboard>

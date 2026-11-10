@@ -60,6 +60,19 @@ class PriceRuleTest extends TestCase
         $this->assertTrue($this->rule(['buscar' => 'ah'])->matches('AH04DA-5A', 'Variador')); // sin elegidos = todos
     }
 
+    public function test_mostrar_en_cero_con_excepciones(): void
+    {
+        $r = $this->rule(['tipo' => 'cero', 'porcentaje' => 0, 'buscar' => 'C2000 Plus', 'usuarios_excluidos' => [7]]);
+        $quiensi = (new User)->forceFill(['id' => 7, 'level' => 3]);   // en excepciones: ve el precio real
+        $otro = (new User)->forceFill(['id' => 8, 'level' => 3]);
+
+        $this->assertEqualsWithDelta(0.0, $r->apply(423.83), 0.001);
+        $this->assertTrue($r->matches('VFD007C23A-21', 'VARIADOR 1HP, 220V, C2000 Plus, TRIFÁSICO'));
+        $this->assertFalse($r->visibleTo($quiensi));
+        $this->assertTrue($r->visibleTo($otro));
+        $this->assertTrue($r->visibleTo(null));
+    }
+
     public function test_usuarios_especificos(): void
     {
         $r = $this->rule(['usuarios' => [7]]);

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\PriceRule;
+use App\Models\Product;
 use App\Models\User;
 use App\Services\StockService;
 use Illuminate\Http\JsonResponse;
@@ -18,23 +19,46 @@ use Illuminate\View\View;
  */
 class PriceRulesController extends Controller
 {
+    /** Catálogo del ERP con la descripción que ven los usuarios (products.description_short; si no hay, el nombre del ERP). */
+    private function catalogo(StockService $stock): \Illuminate\Support\Collection
+    {
+        $descripciones = Product::query()->whereNotNull('idERP')->where('idERP', '!=', '')->whereNotNull('idERP_empresa')
+            ->get(['idERP', 'idERP_empresa', 'description_short'])
+            ->mapWithKeys(fn (Product $p) => [strtoupper($p->idERP_empresa).':'.$p->idERP => $p->description_short]);
+
+        return collect($stock->getProducts())->map(function (array $p) use ($descripciones) {
+            $p['nombre'] = $descripciones->get(strtoupper($p['empresa_codigo'] ?? 'TRAMEC').':'.($p['id'] ?? ''))
+                ?: ($p['nombre'] ?? '');
+
+            return $p;
+        });
+    }
+
     public function index(StockService $stock): View
     {
-        $catalog = collect($stock->getProducts());
+        $catalog = $this->catalogo($stock);
         $rules = PriceRule::orderBy('id')->get();
 
         $counts = $rules->mapWithKeys(fn (PriceRule $r) => [
             $r->id => $catalog->filter(fn (array $p) => $r->matches((string) ($p['codigo'] ?? ''), (string) ($p['nombre'] ?? '')))->count(),
         ]);
 
-        return view('precios.index', ['usuariosPorId' => User::whereIn('id', $rules->pluck('usuarios')->flatten()->filter()->unique())->get()->keyBy('id'), 'rules' => $rules, 'counts' => $counts, 'totalCatalog' => $catalog->count()]);
+        return view('precios.index', ['usuariosPorId' => User::whereIn('id', $rules->pluck('usuarios')->merge($rules->pluck('usuarios_excluidos'))->flatten()->filter()->unique())->get()->keyBy('id'), 'rules' => $rules, 'counts' => $counts, 'totalCatalog' => $catalog->count()]);
     }
 
-    public function create(): View
+    public function create(Request $request): View
     {
+        // ?plantilla=c2000: precarga la regla de la serie C2000 Plus en $0.00 (la casilla "Ver precios C2000 Plus" de v1).
+        $plantilla = $request->query('plantilla') === 'c2000' ? [
+            'nombre' => 'Serie C2000 Plus en $0.00',
+            'tipo' => 'cero',
+            'buscar' => 'C2000 Plus',
+        ] : [];
+
         return view('precios.form', ['users' => User::orderBy('first_name')->get(['id', 'first_name', 'last_name', 'email']), 'rule' => new PriceRule([
             'tipo' => 'descuento',
             'campo' => 'ambos',
+            ...$plantilla,
             'columnas' => array_keys(PriceRule::COLUMNAS),
             'activo' => true,
         ])]);
@@ -81,7 +105,7 @@ class PriceRulesController extends Controller
             'campo' => in_array($request->query('campo'), ['codigo', 'nombre'], true) ? $request->query('campo') : 'ambos',
         ]);
 
-        $matches = collect($stock->getProducts())
+        $matches = $this->catalogo($stock)
             ->filter(fn (array $p) => $probe->matchesFilter((string) ($p['codigo'] ?? ''), (string) ($p['nombre'] ?? '')))
             ->unique(fn (array $p) => strtoupper(trim($p['codigo'] ?? '')))
             ->sortBy(fn (array $p) => strtoupper($p['codigo'] ?? ''))
@@ -97,8 +121,8 @@ class PriceRulesController extends Controller
     {
         $data = $request->validate([
             'nombre' => ['required', 'string', 'max:120'],
-            'tipo' => ['required', Rule::in(['descuento', 'aumento'])],
-            'porcentaje' => ['required', 'numeric', 'between:0.01,100'],
+            'tipo' => ['required', Rule::in(array_keys(PriceRule::TIPOS))],
+            'porcentaje' => ['exclude_if:tipo,cero', 'required', 'numeric', 'between:0.01,100'],
             'buscar' => ['nullable', 'string', 'max:255'],
             'campo' => ['required', Rule::in(['codigo', 'nombre', 'ambos'])],
             'columnas' => ['required', 'array', 'min:1'],
@@ -109,7 +133,11 @@ class PriceRulesController extends Controller
             'incluidos.*' => ['string', 'max:100'],
             'usuarios' => ['nullable', 'array'],
             'usuarios.*' => ['integer', 'exists:users,id'],
+            'usuarios_excluidos' => ['nullable', 'array'],
+            'usuarios_excluidos.*' => ['integer', 'exists:users,id'],
         ]);
+
+        $data['porcentaje'] = $data['tipo'] === 'cero' ? 0 : $data['porcentaje'];
 
         if ($data['tipo'] === 'aumento' && (float) $data['porcentaje'] >= 100) {
             throw \Illuminate\Validation\ValidationException::withMessages(['porcentaje' => 'Un aumento debe ser menor a 100 % (se calcula como precio ÷ (1 − %)).']);
@@ -118,6 +146,7 @@ class PriceRulesController extends Controller
         $data['activo'] = $request->boolean('activo');
         $data['niveles'] = array_map('intval', $data['niveles'] ?? []) ?: null;
         $data['usuarios'] = array_map('intval', $data['usuarios'] ?? []) ?: null;
+        $data['usuarios_excluidos'] = array_map('intval', $data['usuarios_excluidos'] ?? []) ?: null;
         $data['incluidos'] = array_values(array_unique(array_map(fn ($c) => strtoupper(trim($c)), $data['incluidos'] ?? []))) ?: null;
 
         return $data;

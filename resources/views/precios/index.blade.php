@@ -6,7 +6,11 @@
                 <div class="card">
                     <div class="card-header d-flex justify-content-between align-items-center flex-wrap">
                         <span>Descuentos y aumentos</span>
-                        <a href="{{ route('price-rules.create') }}" class="btn btn-sm btn-primary">Nueva regla</a>
+                        <span class="d-flex flex-wrap" style="gap: 8px;">
+                            <a href="{{ route('price-rules.create', ['plantilla' => 'c2000']) }}" class="btn btn-sm btn-secondary"
+                                title="Precarga la regla de v1: los precios de la serie C2000 Plus salen en $0.00 y eliges quién sí ve el real">Ocultar precios C2000 Plus</a>
+                            <a href="{{ route('price-rules.create') }}" class="btn btn-sm btn-primary">Nueva regla</a>
+                        </span>
                     </div>
 
                     <div class="card-body">
@@ -44,9 +48,13 @@
                                                 <td>{{ $loop->iteration }}</td>
                                                 <td>{{ $rule->nombre }}</td>
                                                 <td class="text-nowrap">
-                                                    <span class="badge {{ $rule->tipo === 'descuento' ? 'bg-success' : 'bg-warning text-dark' }}">
-                                                        {{ $rule->tipo === 'descuento' ? '−' : '+' }}{{ rtrim(rtrim(number_format($rule->porcentaje, 2), '0'), '.') }}%
-                                                    </span>
+                                                    @if($rule->tipo === 'cero')
+                                                        <span class="badge bg-dark text-white">$0.00</span>
+                                                    @else
+                                                        <span class="badge {{ $rule->tipo === 'descuento' ? 'bg-success' : 'bg-warning text-dark' }}">
+                                                            {{ $rule->tipo === 'descuento' ? '−' : '+' }}{{ rtrim(rtrim(number_format($rule->porcentaje, 2), '0'), '.') }}%
+                                                        </span>
+                                                    @endif
                                                 </td>
                                                 <td>
                                                     @if(trim((string) $rule->buscar) === '')
@@ -62,6 +70,9 @@
                                                 <td>{{ collect($rule->columnas)->map(fn ($c) => \App\Models\PriceRule::COLUMNAS[$c] ?? $c)->implode(', ') }}</td>
                                                 <td>
                                                     {{ $rule->niveles ? collect($rule->niveles)->map(fn ($n) => \App\Models\PriceRule::NIVELES[$n] ?? $n)->implode(', ') : ($rule->usuarios ? '' : 'Todos') }}
+                                                    @if($rule->usuarios_excluidos)
+                                                        <div class="small text-muted">Excepto {{ count($rule->usuarios_excluidos) }} usuario(s): {{ collect($rule->usuarios_excluidos)->map(fn ($id) => isset($usuariosPorId[$id]) ? $usuariosPorId[$id]->first_name.' '.$usuariosPorId[$id]->last_name : "#$id")->implode(', ') }}</div>
+                                                    @endif
                                                     @if($rule->usuarios)
                                                         <div class="small">Usuarios: {{ collect($rule->usuarios)->map(fn ($id) => isset($usuariosPorId[$id]) ? $usuariosPorId[$id]->first_name.' '.$usuariosPorId[$id]->last_name : "#$id")->implode(', ') }}</div>
                                                     @endif

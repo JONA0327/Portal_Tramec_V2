@@ -77,7 +77,7 @@ class ProductsController extends Controller
         $rows = $catalog->map(function (array $item) use ($localByKey, $adjuster) {
             $empresaCodigo = $item['empresa_codigo'] ?? 'TRAMEC';
             $local = $localByKey->get("{$empresaCodigo}:{$item['id']}");
-            [$precios, $originales] = $adjuster->adjustAll($this->preciosDe($local), $item['codigo'] ?? '-', $item['nombre'] ?? '-');
+            [$precios, $originales] = $adjuster->adjustAll($this->preciosDe($local), $item['codigo'] ?? '-', $local?->description_short ?: ($item['nombre'] ?? '-'));
 
             return [
                 'erp_id' => $item['id'] ?? null,
@@ -102,7 +102,7 @@ class ProductsController extends Controller
             ->get()
             ->reject(fn (Product $p) => ProductoBaja::esBaja(null, $p->name))
             ->map(function (Product $p) use ($adjuster) {
-                [$precios, $originales] = $adjuster->adjustAll($this->preciosDe($p), (string) $p->name, (string) $p->name2);
+                [$precios, $originales] = $adjuster->adjustAll($this->preciosDe($p), (string) $p->name, (string) ($p->description_short ?: $p->name2));
 
                 return [
                 'erp_id' => null,
@@ -190,6 +190,89 @@ class ProductsController extends Controller
      * nombre/código no hace falta pedirlos acá porque los toma del ERP y los
      * mantiene al día solo de ahí en más (ver App\Listeners\SyncLocalProductFromErp).
      */
+    /**
+     * idERP/idERP_empresa no están en $fillable a propósito (ver Product::$fillable), así que
+     * Product::create() los descartaría en silencio: se ponen con forceFill().
+     */
+    private function crearProductoLocal(array $erpProduct, string $empresa): Product
+    {
+        $product = new Product();
+        $product->forceFill([
+            'name' => $erpProduct['codigo'],
+            'name2' => preg_replace('/[^A-Za-z0-9]/', '', $erpProduct['codigo']),
+            'idERP' => $erpProduct['id'],
+            'idERP_empresa' => $empresa,
+        ]);
+        $product->save();
+
+        return $product;
+    }
+
+    /**
+     * Registro / baja de varios productos a la vez (casillas del listado). Cada item es "erp:EMPRESA:ID" (fila del
+     * catálogo del ERP) o "loc:ID" (producto local sin emparejar). Registrar solo actúa sobre los que aún no están
+     * registrados; dar de baja sirve para cualquiera. Solo ADMINISTRADOR (ver routes/web.php).
+     */
+    public function masivo(Request $request, StockService $stock): RedirectResponse
+    {
+        $data = $request->validate([
+            'accion' => ['required', \Illuminate\Validation\Rule::in(['registrar', 'baja'])],
+            'items' => ['required', 'array', 'min:1', 'max:500'],
+            'items.*' => ['string', 'max:200'],
+        ]);
+
+        $hecho = $omitido = 0;
+
+        foreach (array_unique($data['items']) as $item) {
+            if (preg_match('/^erp:([A-Za-z]+):(\d+)$/', $item, $m)) {
+                $empresa = strtoupper($m[1]);
+                $erp = $this->findErpProduct($stock, $empresa, $m[2]);
+                $codigo = $erp['codigo'] ?? null;
+                $nombre = $erp['nombre'] ?? null;
+                $idErp = $erp['id'] ?? null;
+            } elseif (preg_match('/^loc:(\d+)$/', $item, $m) && ($local = Product::find($m[1]))) {
+                $erp = null;
+                $empresa = $local->idERP_empresa ? strtoupper($local->idERP_empresa) : '*';
+                $codigo = $local->name;
+                $nombre = $local->name2;
+                $idErp = $local->idERP ?: null;
+            } else {
+                $omitido++;
+
+                continue;
+            }
+
+            if (! $codigo) {
+                $omitido++;
+
+                continue;
+            }
+
+            if ($data['accion'] === 'registrar') {
+                $yaRegistrado = $erp && Product::where('idERP', $erp['id'])->where('idERP_empresa', $empresa)->exists();
+
+                if (! $erp || $yaRegistrado || ProductoBaja::esBaja($empresa, $codigo)) {
+                    $omitido++;
+
+                    continue;
+                }
+
+                $this->crearProductoLocal($erp, $empresa);
+            } else {
+                ProductoBaja::firstOrCreate(
+                    ['empresa' => $empresa, 'codigo' => ProductoBaja::normalizar($codigo)],
+                    ['id_erp' => $idErp, 'nombre' => $nombre, 'dado_de_baja_por' => $request->user()->id]
+                );
+            }
+
+            $hecho++;
+        }
+
+        $verbo = $data['accion'] === 'registrar' ? 'registrado(s)' : 'dado(s) de baja (se reactivan desde Bajas)';
+
+        return back()->with('status', "{$hecho} producto(s) {$verbo}".($omitido ? ", {$omitido} omitido(s) (ya registrados, de baja o inexistentes)." : '.'));
+    }
+
     public function register(Request $request, StockService $stock): RedirectResponse
     {
         $data = $request->validate([
@@ -203,16 +286,7 @@ class ProductsController extends Controller
         $erpProduct = $this->findErpProduct($stock, $empresa, $data['erp_id']);
         abort_unless($erpProduct, 404, 'Ese producto ya no existe en el catálogo del ERP.');
 
-        // idERP/idERP_empresa no están en $fillable a propósito (ver Product::$fillable),
-        // así que Product::create() los descartaría en silencio: se ponen con forceFill().
-        $product = new Product();
-        $product->forceFill([
-            'name' => $erpProduct['codigo'],
-            'name2' => preg_replace('/[^A-Za-z0-9]/', '', $erpProduct['codigo']),
-            'idERP' => $erpProduct['id'],
-            'idERP_empresa' => $empresa,
-        ]);
-        $product->save();
+        $this->crearProductoLocal($erpProduct, $empresa);
 
         return back()->with('status', "Producto {$erpProduct['codigo']} registrado. Cargale el precio cuando quieras con \"Editar\".");
     }

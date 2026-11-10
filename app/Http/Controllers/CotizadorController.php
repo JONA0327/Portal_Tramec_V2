@@ -160,6 +160,7 @@ class CotizadorController extends Controller
             'folio' => $folio,
             'logo' => $this->logoBase64(),
             'qr' => $this->imagenBase64('qr-tramec.png'), // QR simple a https://tramec.mx/
+            'marcas' => collect(['delta', 'omec', 'stm', 'wolong', 'oli-sick'])->mapWithKeys(fn ($m) => [$m => $this->imagenBase64("pdf/marca-{$m}.png")])->filter()->all(), // pie del PDF
         ])->render();
 
         $dompdf = new Dompdf(['defaultFont' => 'DejaVu Sans', 'isHtml5ParserEnabled' => true]);

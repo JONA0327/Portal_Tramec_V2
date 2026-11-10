@@ -14,7 +14,7 @@
     <meta charset="UTF-8">
     <title>Cotización {{ $folio }}</title>
     <style>
-        @page { margin: 26px 30px 24px 30px; }
+        @page { margin: 26px 30px 214px 30px; } /* abajo cabe el pie fijo (cuentas, marcas y aviso) */
         body { font-family: 'DejaVu Sans', sans-serif; font-size: 9px; color: #222; }
         table { border-collapse: collapse; width: 100%; }
         .azul { background: {{ $azul }}; color: #fff; font-weight: bold; }
@@ -24,6 +24,9 @@
         .items td { padding: 4px 4px; border: 1px solid {{ $azul }}; vertical-align: middle; }
         .items tr.par td { background: {{ $claro }}; } .items tr.non td { background: {{ $claro2 }}; }
         .totales td { padding: 3px 6px; border: 1px solid {{ $azul }}; }
+        .ar { font-family: Helvetica, Arial, sans-serif; }
+        .pie { position: fixed; left: 0; right: 0; bottom: -188px; font-family: Helvetica, Arial, sans-serif; color: #000; }
+        .pie .banco td { vertical-align: top; font-size: 8.7px; line-height: 1.42; padding: 0; }
     </style>
 </head>
 <body>
@@ -36,10 +39,10 @@
                     <td style="width: 95px; vertical-align: top; padding: 0;">
                         @if($qr)<img src="{{ $qr }}" style="width: 90px; height: 90px;" alt="QR">@endif
                     </td>
-                    <td style="text-align: center; vertical-align: top; padding-top: 6px;">
-                        <div class="b" style="color: {{ $azul }}; font-size: 11px; line-height: 1.5;">TRANSMISIÓN MECÁNICA Y CONTROL</div>
-                        <div style="margin-top: 8px; font-size: 9px;">QRO - GDL - SLP</div>
-                        <div class="b" style="margin-top: 6px; font-size: 9px;">Oficina: (442) 294 8232</div>
+                    <td class="ar" style="text-align: center; vertical-align: top; padding-top: 4px;">
+                        <div class="b" style="color: #7f7f7f; font-size: 14.5px; line-height: 1.3;">TRANSMISION MECANICA Y CONTROL</div>
+                        <div style="margin-top: 5px; font-size: 9.8px; color: {{ $azul }};">QUERETARO | GUADALAJARA | SAN LUIS POTOSI</div>
+                        <div style="margin-top: 9px; font-size: 9.8px; color: #7f7f7f;">TEL: (442) 294 8232</div>
                     </td>
                 </tr>
             </table>
@@ -131,6 +134,7 @@
                 <tr><td class="b c" colspan="2">{{ $c->condiciones_pago }}</td></tr>
             </table>
             <div class="c" style="margin-top: 14px; line-height: 1.7;">
+                <span class="ar" style="font-size: 10px;">ATENTAMENTE</span><br>
                 <span class="b" style="font-size: 10px;">{{ $c->emisor }}</span><br>
                 @if($c->emisor_email)<span style="color: {{ $azul }}; text-decoration: underline;">{{ $c->emisor_email }}</span><br>@endif
                 @if($c->emisor_telefono)<span class="b">Cel: {{ $c->emisor_telefono }}</span>@endif
@@ -140,6 +144,35 @@
 </table>
 
 <p style="margin: 22px 0 0 14px; font-size: 9px; width: 60%;">En espera que nuestra cotización sea de su total satisfacción y poder atender sus pedidos.</p>
+
+{{-- Pie de página fijo: cuentas bancarias, marcas que distribuye Tramec y aviso de confirmación de pedido. --}}
+<div class="pie">
+    <div style="font-size: 8.7px; line-height: 1.42; padding-left: 12px;">
+        CUENTAS BANCARIAS:<br>
+        Beneficiario: TRANSMISION MECANICA Y CONTROL S DE RL DE CV<br>
+        RFC: TMC 170306 794
+    </div>
+    <table class="banco" style="margin-top: 5px; width: 100%;">
+        <tr>
+            <td style="width: 139px; padding-left: 10px;">PESOS MEXICANOS (MXN):<br>Banco: SCOTIABANK<br>No. de Cuenta: 03505223261<br>CLABE: 044680035052232617</td>
+            <td style="width: 150px;">PESOS MEXICANOS (MXN):<br>Banco: SANTANDER<br>No. de Cuenta: 65-51036949-6<br>CLABE: 014680655103694967</td>
+            <td style="width: 219px;">DÓLARES (USD):<br>Banco: SCOTIABANK<br>No. de Cuenta: 95600020776<br>CLABE: 044680956000207760 SWIFT: MBCOMXMM</td>
+            <td>DÓLARES (USD):<br>Banco: SANTANDER<br>No. de Cuenta: 82-50117471-6<br>CLABE: 014680825011747163</td>
+        </tr>
+    </table>
+    @if(! empty($marcas))
+        {{-- Las cinco imágenes de marcas (con su fondo blanco) tal como van en el diseño; alto y ancho de cada celda como en la hoja de ejemplo. --}}
+        @php $celdas = ['delta' => [18.2, 43.5], 'omec' => [18.4, 43.5], 'stm' => [11.8, 43.5], 'wolong' => [22.6, 35], 'oli-sick' => [29, 48.5]]; @endphp
+        <table style="margin-top: 6px; width: 100%;">
+            <tr>
+                @foreach($marcas as $clave => $img)
+                    <td style="width: {{ $celdas[$clave][0] ?? 20 }}%; text-align: center; vertical-align: middle; padding: 0;"><img src="{{ $img }}" style="height: {{ $celdas[$clave][1] ?? 40 }}px;" alt="{{ $clave }}"></td>
+                @endforeach
+            </tr>
+        </table>
+    @endif
+    <p style="margin: 8px 0 0 0; font-size: 9.2px; line-height: 1.3;">La confirmación o emisión de orden de compra derivada de la presente cotización formaliza el compromiso comercial entre el cliente y Transmisión Mecánica y Control. Toda transacción queda sujeta a disponibilidad de inventario y validación técnica/comercial, pudiendo existir modificaciones en tiempos de entrega o costos derivados de factores operativos o de mercado previo a su facturación final.</p>
+</div>
 
 </body>
 </html>

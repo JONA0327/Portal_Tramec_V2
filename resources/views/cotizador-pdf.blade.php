@@ -31,8 +31,8 @@
 <table>
     <tr>
         <td style="width: 55%; text-align: center; vertical-align: top; padding-top: 6px;">
-            @if($qr)<img src="{{ $qr }}" style="width: 84px; height: 84px;" alt="QR tramec.mx">
-            <div class="b" style="color: {{ $azul }}; font-size: 9px; margin-top: 2px;">tramec.mx</div>@endif
+            <div class="b" style="color: {{ $azul }}; font-size: 11px; line-height: 1.5;">TRANSMISIÓN MECÁNICA Y CONTROL</div>
+            @if($qr)<img src="{{ $qr }}" style="width: 84px; height: 84px; margin-top: 4px;" alt="QR tramec.mx">@endif
             <div style="margin-top: 8px; font-size: 9px;">QRO - GDL - SLP</div>
             <div class="b" style="margin-top: 6px; font-size: 9px;">Oficina: (442) 294 8232</div>
         </td>

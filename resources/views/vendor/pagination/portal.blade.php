@@ -1,8 +1,8 @@
 {{-- Paginación del portal (Bootstrap 4 del tema): "Anterior / números / Siguiente" en escritorio y, en teléfono,
-     solo "‹ Anterior · Página X de Y · Siguiente ›" para que quepa en una línea. --}}
+     solo "‹ · X / Y · ›" para que quepa en una línea. --}}
 @if ($paginator->hasPages())
     <nav aria-label="Paginación" class="paginacion-portal">
-        <ul class="pagination justify-content-center mb-0">
+        <ul class="pagination justify-content-center flex-nowrap mb-0">
             <li class="page-item {{ $paginator->onFirstPage() ? 'disabled' : '' }}">
                 @if ($paginator->onFirstPage())
                     <span class="page-link">‹ <span class="d-none d-sm-inline">Anterior</span></span>
@@ -11,7 +11,7 @@
                 @endif
             </li>
 
-            <li class="page-item disabled d-md-none"><span class="page-link">Página {{ $paginator->currentPage() }} de {{ $paginator->lastPage() }}</span></li>
+            <li class="page-item disabled d-md-none"><span class="page-link text-nowrap" aria-label="Página {{ $paginator->currentPage() }} de {{ $paginator->lastPage() }}">{{ $paginator->currentPage() }} / {{ $paginator->lastPage() }}</span></li>
 
             @foreach ($elements as $element)
                 @if (is_string($element))

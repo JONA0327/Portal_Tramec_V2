@@ -114,3 +114,26 @@
         if (t && t.type === 'checkbox' && t.closest('.filtros-opciones')) { form.submit(); }
     });
 })();
+
+/*
+ * Móvil: el botón "Filtros" muestra / esconde los tres filtros (empresa, estado o almacén, clasificación) y avisa
+ * cuántos están aplicados. En escritorio el botón no se ve y los filtros están siempre a la vista.
+ */
+(function () {
+    'use strict';
+
+    var form = document.querySelector('form.filtros-barra');
+    var boton = form ? form.querySelector('.filtros-toggle') : null;
+    if (!form || !boton) { return; }
+
+    function etiqueta() {
+        var n = Array.prototype.filter.call(form.querySelectorAll('.filtros-extra select'), function (s) { return s.value !== ''; }).length;
+        var abierto = form.classList.contains('filtros-abiertos');
+        boton.textContent = 'Filtros' + (n ? ' (' + n + ')' : '') + (abierto ? ' ▴' : ' ▾');
+        boton.setAttribute('aria-expanded', abierto ? 'true' : 'false');
+    }
+
+    boton.addEventListener('click', function () { form.classList.toggle('filtros-abiertos'); etiqueta(); });
+    form.addEventListener('change', etiqueta);
+    etiqueta();
+})();

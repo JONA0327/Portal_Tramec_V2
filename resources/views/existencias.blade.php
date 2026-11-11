@@ -49,25 +49,28 @@
                             <form method="GET" action="{{ route('existencias') }}" class="filtros-barra">
                                 <input type="hidden" name="filtros" value="1">{{-- distingue "filtros enviados" de "entrada sin filtros" (ver preferenciaAgrupar) --}}
                                 <input type="hidden" name="por_pagina" value="{{ $perPage }}">
-                                <select name="empresa" class="form-control" aria-label="Empresa">
-                                    <option value="">Todas las empresas</option>
-                                    @foreach($empresas as $empresaOption)
-                                        <option value="{{ $empresaOption }}" @selected($empresa === $empresaOption)>{{ $empresaOption }}</option>
-                                    @endforeach
-                                </select>
-                                <select name="almacen" class="form-control" aria-label="Almacén">
-                                    <option value="">Todos los almacenes</option>
-                                    @foreach($almacenes as $almacenOption)
-                                        <option value="{{ $almacenOption }}" @selected($almacen === $almacenOption)>{{ $almacenOption }}</option>
-                                    @endforeach
-                                </select>
-                                <select name="clasificacion" class="form-control" aria-label="Clasificación">
-                                    <option value="">Todas las clasificaciones</option>
-                                    @foreach($clasificaciones as $c)
-                                        <option value="{{ $c }}" @selected($clasificacion === $c)>{{ $c }}</option>
-                                    @endforeach
-                                    <option value="__sin" @selected($clasificacion === '__sin')>Sin clasificación</option>
-                                </select>
+                                <button type="button" class="btn btn-secondary filtros-toggle" aria-expanded="false" aria-controls="filtros-extra">Filtros</button>
+                                <div class="filtros-extra" id="filtros-extra">
+                                    <select name="empresa" class="form-control" aria-label="Empresa">
+                                        <option value="">Todas las empresas</option>
+                                        @foreach($empresas as $empresaOption)
+                                            <option value="{{ $empresaOption }}" @selected($empresa === $empresaOption)>{{ $empresaOption }}</option>
+                                        @endforeach
+                                    </select>
+                                    <select name="almacen" class="form-control" aria-label="Almacén">
+                                        <option value="">Todos los almacenes</option>
+                                        @foreach($almacenes as $almacenOption)
+                                            <option value="{{ $almacenOption }}" @selected($almacen === $almacenOption)>{{ $almacenOption }}</option>
+                                        @endforeach
+                                    </select>
+                                    <select name="clasificacion" class="form-control" aria-label="Clasificación">
+                                        <option value="">Todas las clasificaciones</option>
+                                        @foreach($clasificaciones as $c)
+                                            <option value="{{ $c }}" @selected($clasificacion === $c)>{{ $c }}</option>
+                                        @endforeach
+                                        <option value="__sin" @selected($clasificacion === '__sin')>Sin clasificación</option>
+                                    </select>
+                                </div>
                                 <div class="grupo-busqueda">
                                     <input type="text" name="buscar" id="buscar-input" value="{{ $buscar }}" class="form-control filtro-buscar"
                                         placeholder="Buscar por código o descripción..." autocomplete="off">

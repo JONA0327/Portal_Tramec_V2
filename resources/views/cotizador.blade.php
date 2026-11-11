@@ -50,7 +50,7 @@
                                     <h6 class="mb-2"><span class="badge bg-dark text-white">{{ $moneda }}</span> <small class="text-muted">{{ $g['items']->count() }} producto(s)</small></h6>
 
                                     <div class="table-responsive">
-                                        <table class="table table-bordered align-middle mb-2">
+                                        <table class="table table-bordered align-middle mb-2 cot-items">
                                             <thead>
                                                 <tr>
                                                     <th>Código</th>
@@ -67,22 +67,22 @@
                                                 @foreach($g['items'] as $it)
                                                     @php $pu = $it->precioUnitario(old('precio_base', $c->precio_base)); $canalFila = old("items.{$it->id}.canal", $it->canal ?: old('precio_base', $c->precio_base)); @endphp
                                                     <tr class="cot-fila" data-moneda="{{ $moneda }}" data-precios='@json($it->precios ?? [])' data-manual="{{ $it->precio_manual !== null ? 1 : 0 }}">
-                                                        <td class="text-nowrap"><strong>{{ $it->codigo }}</strong></td>
-                                                        <td><input type="text" name="items[{{ $it->id }}][descripcion]" value="{{ old("items.{$it->id}.descripcion", $it->descripcion) }}" class="form-control" maxlength="500"></td>
-                                                        <td><input type="number" name="items[{{ $it->id }}][cantidad]" value="{{ old("items.{$it->id}.cantidad", rtrim(rtrim(number_format($it->cantidad, 2, '.', ''), '0'), '.')) }}" class="form-control cot-cant" min="0.01" step="any" required></td>
-                                                        <td><input type="text" name="items[{{ $it->id }}][tiempo_entrega]" value="{{ old("items.{$it->id}.tiempo_entrega", $it->tiempo_entrega) }}" class="form-control" maxlength="100"></td>
-                                                        <td>
+                                                        <td class="text-nowrap" data-label="Código"><strong>{{ $it->codigo }}</strong></td>
+                                                        <td data-label="Descripción"><input type="text" name="items[{{ $it->id }}][descripcion]" value="{{ old("items.{$it->id}.descripcion", $it->descripcion) }}" class="form-control" maxlength="500"></td>
+                                                        <td data-label="Cantidad"><input type="number" name="items[{{ $it->id }}][cantidad]" value="{{ old("items.{$it->id}.cantidad", rtrim(rtrim(number_format($it->cantidad, 2, '.', ''), '0'), '.')) }}" class="form-control cot-cant" min="0.01" step="any" required></td>
+                                                        <td data-label="Tiempo de entrega"><input type="text" name="items[{{ $it->id }}][tiempo_entrega]" value="{{ old("items.{$it->id}.tiempo_entrega", $it->tiempo_entrega) }}" class="form-control" maxlength="100"></td>
+                                                        <td data-label="Canal">
                                                             <select name="items[{{ $it->id }}][canal]" class="form-control cot-canal" aria-label="Canal de {{ $it->codigo }}">
                                                                 @foreach($columnas as $clave => $etiqueta)
                                                                     <option value="{{ $clave }}" @selected($canalFila === $clave)>{{ $etiqueta }}</option>
                                                                 @endforeach
                                                             </select>
                                                         </td>
-                                                        <td>
+                                                        <td data-label="Precio unitario">
                                                             <input type="number" name="items[{{ $it->id }}][precio]" value="{{ old("items.{$it->id}.precio", number_format($pu, 2, '.', '')) }}" class="form-control cot-precio {{ $pu <= 0 ? 'is-invalid' : '' }}" min="0" step="0.01">
                                                             @if($pu <= 0)<small class="text-danger sin-precio">Sin precio</small>@endif
                                                         </td>
-                                                        <td class="text-end text-nowrap cot-importe">{{ number_format($it->importe(old('precio_base', $c->precio_base)), 2) }}</td>
+                                                        <td class="text-end text-nowrap cot-importe" data-label="Importe">{{ number_format($it->importe(old('precio_base', $c->precio_base)), 2) }}</td>
                                                         <td>
                                                             <button type="submit" name="_method" value="DELETE" formaction="{{ route('cotizador.quitar', $it) }}" formnovalidate
                                                                 class="btn btn-sm btn-limpiar" title="Quitar del carrito" aria-label="Quitar {{ $it->codigo }}">×</button>
@@ -109,19 +109,19 @@
                                 <button type="button" class="btn btn-sm btn-limpiar mb-3" data-paso="carrito">← Volver al carrito</button>
                             <h6 class="mb-3">Datos de la cotización</h6>
                             <div class="row">
-                                <div class="col-6 col-lg-3 mb-3">
+                                <div class="col-12 col-sm-6 col-lg-3 mb-3">
                                     <label class="form-label" for="fecha">Fecha</label>
                                     <input type="date" id="fecha" name="fecha" class="form-control" value="{{ old('fecha', $c->fecha?->format('Y-m-d')) }}" required>
                                 </div>
-                                <div class="col-6 col-lg-3 mb-3">
+                                <div class="col-12 col-sm-6 col-lg-3 mb-3">
                                     <label class="form-label" for="folio">Folio</label>
                                     <input type="text" id="folio" name="folio" class="form-control" value="{{ old('folio', $c->folio) }}" maxlength="60" placeholder="Automático (COT-00001...) si lo dejas vacío">
                                 </div>
-                                <div class="col-6 col-lg-3 mb-3">
+                                <div class="col-12 col-sm-6 col-lg-3 mb-3">
                                     <label class="form-label" for="vigencia">Vigencia</label>
                                     <input type="text" id="vigencia" name="vigencia" class="form-control" value="{{ old('vigencia', $c->vigencia) }}" maxlength="60" placeholder="Ej.: 30 Días.">
                                 </div>
-                                <div class="col-6 col-lg-3 mb-3">
+                                <div class="col-12 col-sm-6 col-lg-3 mb-3">
                                     <label class="form-label" for="condiciones_pago">Condiciones de pago</label>
                                     @php $cp = old('condiciones_pago', $c->condiciones_pago); @endphp
                                     <select id="condiciones_lista" class="form-control mb-1" aria-label="Elegir condición de pago">
@@ -139,11 +139,11 @@
                                     <label class="form-label" for="cliente_empresa">Cliente (empresa)</label>
                                     <input type="text" id="cliente_empresa" name="cliente_empresa" class="form-control" value="{{ old('cliente_empresa', $c->cliente_empresa) }}" maxlength="191">
                                 </div>
-                                <div class="col-6 col-lg-4 mb-3">
+                                <div class="col-12 col-sm-6 col-lg-4 mb-3">
                                     <label class="form-label" for="cliente_atencion">Atención</label>
                                     <input type="text" id="cliente_atencion" name="cliente_atencion" class="form-control" value="{{ old('cliente_atencion', $c->cliente_atencion) }}" maxlength="191" placeholder="A quien corresponda.">
                                 </div>
-                                <div class="col-6 col-lg-4 mb-3">
+                                <div class="col-12 col-sm-6 col-lg-4 mb-3">
                                     <label class="form-label" for="cliente_telefono">Teléfono</label>
                                     <input type="text" id="cliente_telefono" name="cliente_telefono" class="form-control" value="{{ old('cliente_telefono', $c->cliente_telefono) }}" maxlength="60">
                                 </div>
@@ -154,22 +154,22 @@
                                     <label class="form-label" for="emisor">Emisor de la cotización</label>
                                     <input type="text" id="emisor" name="emisor" class="form-control" value="{{ old('emisor', $c->emisor) }}" maxlength="191">
                                 </div>
-                                <div class="col-6 col-lg-4 mb-3">
+                                <div class="col-12 col-sm-6 col-lg-4 mb-3">
                                     <label class="form-label" for="emisor_email">Correo del emisor</label>
                                     <input type="text" id="emisor_email" name="emisor_email" class="form-control" value="{{ old('emisor_email', $c->emisor_email) }}" maxlength="191">
                                 </div>
-                                <div class="col-6 col-lg-4 mb-3">
+                                <div class="col-12 col-sm-6 col-lg-4 mb-3">
                                     <label class="form-label" for="emisor_telefono">Teléfono / Cel del emisor</label>
                                     <input type="text" id="emisor_telefono" name="emisor_telefono" class="form-control" value="{{ old('emisor_telefono', $c->emisor_telefono) }}" maxlength="60">
                                 </div>
                             </div>
 
                             <div class="row">
-                                <div class="col-6 col-lg-3 mb-3">
+                                <div class="col-12 col-sm-6 col-lg-3 mb-3">
                                     <label class="form-label" for="descuento_pct">Descuento %</label>
                                     <input type="number" id="descuento_pct" name="descuento_pct" class="form-control" step="0.01" min="0" max="100" value="{{ old('descuento_pct', rtrim(rtrim(number_format($c->descuento_pct, 2, '.', ''), '0'), '.') ?: 0) }}">
                                 </div>
-                                <div class="col-6 col-lg-3 mb-3">
+                                <div class="col-12 col-sm-6 col-lg-3 mb-3">
                                     <label class="form-label" for="iva_pct">IVA</label>
                                     @php $ivaActual = (float) old('iva_pct', $c->iva_pct); @endphp
                                     <select id="iva_pct" name="iva_pct" class="form-control">
@@ -219,6 +219,22 @@
             </div>
         </div>
     </div>
+
+    <style>
+        /* Teléfono: cada producto del carrito es una tarjeta con su etiqueta y el campo a todo el ancho. */
+        @media (max-width: 767px) {
+            .cot-items thead { display: none; }
+            .cot-items, .cot-items tbody, .cot-items tr, .cot-items td { display: block; width: 100%; }
+            .cot-items tr { border: 1px solid #dfe6ee; border-radius: 10px; margin-bottom: 12px; padding: 4px 10px; background: #fff; position: relative; }
+            .cot-items td { border: 0; padding: 6px 0; display: flex; align-items: center; justify-content: space-between; gap: 12px; text-align: left; }
+            .cot-items td[data-label]::before { content: attr(data-label); flex: 0 0 38%; font-size: 12px; color: #6b7a8c; }
+            .cot-items td .form-control { flex: 1 1 auto; width: 100%; min-width: 0; }
+            .cot-items td:last-child { position: absolute; top: 4px; right: 8px; width: auto; padding: 0; }
+            .cot-items td:first-child { padding-right: 44px; font-size: 15px; }
+            .cot-items td.cot-importe { font-weight: 600; }
+            .cot-totales { width: 100% !important; min-width: 0 !important; }
+        }
+    </style>
 
     <script src="{{ asset('dash-assets/js/cotizador.js').'?v='.filemtime(public_path('dash-assets/js/cotizador.js')) }}" defer></script>
 

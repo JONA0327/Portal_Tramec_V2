@@ -386,6 +386,20 @@
         .filtros-barra .filtro-check input { flex: none; width: 16px; height: 16px; min-width: 16px; padding: 0; margin: 0; }
         .filtros-barra .btn { flex: 0 0 auto; white-space: nowrap; }
         .form-control[type="file"] { height: auto; padding: 9px 10px; } /* el tema fija input{height:40px} */
+        /* Los tres filtros (empresa / estado o almacén / clasificación): en escritorio se ven como siempre; en teléfono y
+           tablet chica se esconden detrás del botón "Filtros" para que el listado se vea de entrada. */
+        .filtros-extra { display: contents; }
+        .filtros-toggle { display: none; }
+        @media (max-width: 767px) {
+            .filtros-toggle { display: block; flex: 1 1 100%; }
+            .filtros-barra .filtros-extra { display: none; flex: 1 1 100%; flex-direction: column; gap: 10px; }
+            .filtros-barra.filtros-abiertos .filtros-extra { display: flex; }
+            .filtros-barra .filtros-extra .form-control { flex: 0 0 auto; width: 100%; }
+            /* Búsqueda a todo el ancho y los botones Buscar / Limpiar debajo, mitad y mitad. */
+            .filtros-barra .grupo-busqueda { flex: 1 1 100%; flex-wrap: wrap; }
+            .filtros-barra .grupo-busqueda .filtro-buscar { flex: 1 1 100%; width: 100%; }
+            .filtros-barra .grupo-busqueda .btn { flex: 1 1 calc(50% - 5px); text-align: center; }
+        }
         @media (max-width: 575px) {
             .filtros-barra .form-control, .filtros-barra .grupo-busqueda { flex: 1 1 100%; }
             .filtros-barra .grupo-busqueda .filtro-buscar { flex: 1 1 auto; }

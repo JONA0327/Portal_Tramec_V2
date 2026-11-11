@@ -52,8 +52,8 @@ class StockService
         return $productos !== [] ? $productos : $this->cargarSiVacio();
     }
 
-    /** Lo que hay en caché, sin intentar traer nada (lo usan los propios syncs). */
-    private function enCache(): array
+    /** Lo que hay en caché, sin intentar traer nada: nunca llama al servicio (lo usan los syncs y el carrito de cotización). */
+    public function enCache(): array
     {
         return Cache::get(self::CACHE_KEY_PRODUCTS, []);
     }

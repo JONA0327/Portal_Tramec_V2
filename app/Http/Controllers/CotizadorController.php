@@ -50,7 +50,7 @@ class CotizadorController extends Controller
 
         $cotizacion = Cotizacion::deUsuario($request->user());
         $columnas = array_keys($request->user()->columnasPrecio());
-        $catalogo = collect($stock->getProducts());
+        $catalogo = collect($stock->enCache()); // solo la caché: con el servicio caído el carrito no debe esperar ni fallar
         $agregados = $repetidos = $omitidos = 0;
 
         foreach (array_unique($data['items']) as $key) {
@@ -287,6 +287,12 @@ class CotizadorController extends Controller
             $empresa = $local?->idERP_empresa ? strtoupper($local->idERP_empresa) : null;
         } else {
             return null;
+        }
+
+        // Sin catálogo (servicio de existencias caído y caché sin ese producto): se usa la ficha local, que guarda el vínculo
+        // con el ERP (idERP + empresa), para que el carrito siga funcionando.
+        if (! $local && ! $erp && isset($m[2], $empresa)) {
+            $local = Product::where('idERP', (int) $m[2])->whereRaw('UPPER(idERP_empresa) = ?', [$empresa])->first();
         }
 
         $codigo = $erp['codigo'] ?? $local?->name ?? $override?->codigo;

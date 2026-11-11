@@ -90,7 +90,7 @@
                                 </table>
                             </div>
 
-                            <div class="mt-4">{{ $users->links('pagination::bootstrap-5') }}</div>
+                            <div class="mt-4">{{ $users->links('vendor.pagination.portal') }}</div>
                         @endif
                     </div>
                 </div>

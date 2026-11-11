@@ -279,7 +279,7 @@
                             @endif
 
                             <div class="mt-4">
-                                {{ $levels->links('pagination::bootstrap-5') }}
+                                {{ $levels->links('vendor.pagination.portal') }}
                             </div>
                         @endif
                         </div>{{-- #resultados --}}

@@ -55,7 +55,7 @@
                                     </tbody>
                                 </table>
                             </div>
-                            {{ $registros->links('pagination::bootstrap-5') }}
+                            {{ $registros->links('vendor.pagination.portal') }}
                         @endif
                     </div>
                 </div>

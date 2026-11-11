@@ -225,7 +225,7 @@
                             </div>
 
                             <div class="mt-4">
-                                {{ $products->links('pagination::bootstrap-5') }}
+                                {{ $products->links('vendor.pagination.portal') }}
                             </div>
                         @endif
                         </div>{{-- #resultados --}}

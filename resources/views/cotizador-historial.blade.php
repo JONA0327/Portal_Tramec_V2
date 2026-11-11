@@ -16,6 +16,7 @@
                         @if($registros->isEmpty())
                             <p class="mb-0 text-muted">Todavía no hay cotizaciones guardadas. Al descargar un PDF en el carrito, marca "Guardar esta cotización en el historial".</p>
                         @else
+                            <x-por-pagina :actual="$porPagina" />
                             <div class="table-responsive">
                                 <table class="table table-bordered table-striped align-middle">
                                     <thead>

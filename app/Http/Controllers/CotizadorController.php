@@ -131,7 +131,9 @@ class CotizadorController extends Controller
             $q->where('user_id', $request->user()->id); // cada quien ve las suyas; el administrador, todas
         }
 
-        return view('cotizador-historial', ['registros' => $q->paginate(20), 'verUsuario' => $request->user()->isAdmin()]);
+        $porPagina = \App\Support\PorPagina::desde($request, 20); // 10 / 25 / 50 / 100, como en Productos
+
+        return view('cotizador-historial', ['registros' => $q->paginate($porPagina)->withQueryString(), 'porPagina' => $porPagina, 'verUsuario' => $request->user()->isAdmin()]);
     }
 
     public function historialPdf(Request $request, CotizacionHistorial $registro): Response

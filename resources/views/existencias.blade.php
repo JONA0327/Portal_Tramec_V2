@@ -16,7 +16,7 @@
 
     <x-slot name="estado">
         @if($lastSyncAt)
-        Actualizado: {{ \Illuminate\Support\Carbon::parse($lastSyncAt)->locale('es')->diffForHumans() }}
+        Actualizado: {{ \Illuminate\Support\Carbon::parse($lastSyncAt)->locale('es')->diffForHumans() }} ({{ \App\Support\SyncLog::mx($lastSyncAt)->format('d/m/Y H:i') }} hora de México)
         @else
         Todavía sin sincronizar
         @endif

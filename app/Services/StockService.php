@@ -93,7 +93,7 @@ class StockService
      */
     public function lastSyncAt(): ?string
     {
-        return Cache::get(self::CACHE_KEY_LAST_SYNC);
+        return Cache::get(self::CACHE_KEY_LAST_SYNC) ?? \App\Support\SyncLog::lastSuccess('products');
     }
 
     /**
@@ -112,6 +112,7 @@ class StockService
             $after = $this->fetchAllProducts();
         } catch (\Illuminate\Http\Client\ConnectionException|\Illuminate\Http\Client\RequestException $e) {
             StockHealth::down();
+            \App\Support\SyncLog::failure('products', $e->getMessage());
             throw $e; // la caché anterior queda intacta
         }
         StockHealth::up();
@@ -139,6 +140,7 @@ class StockService
 
         Cache::forever(self::CACHE_KEY_PRODUCTS, $products);
         Cache::forever(self::CACHE_KEY_LAST_SYNC, now()->toDateTimeString());
+        \App\Support\SyncLog::success('products');
 
         // Lo que solo existía por el Excel de Schenker y ya se dio de alta en CONTPAQi se liga al producto real.
         ExistenciaOverride::ligarConCatalogo($products);
@@ -174,6 +176,7 @@ class StockService
 
         Cache::forever(self::CACHE_KEY_PRODUCTS, array_values($products));
         Cache::forever(self::CACHE_KEY_LAST_SYNC, now()->toDateTimeString());
+        \App\Support\SyncLog::success('products');
 
         ExistenciaOverride::ligarConCatalogo([$product]);
 

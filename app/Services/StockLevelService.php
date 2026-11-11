@@ -38,7 +38,7 @@ class StockLevelService
 
     public function lastSyncAt(): ?string
     {
-        return Cache::get(self::CACHE_KEY_LAST_SYNC);
+        return Cache::get(self::CACHE_KEY_LAST_SYNC) ?? \App\Support\SyncLog::lastSuccess('levels');
     }
 
     /**
@@ -57,6 +57,7 @@ class StockLevelService
             $after = $this->fetchAllLevels();
         } catch (\Illuminate\Http\Client\ConnectionException|\Illuminate\Http\Client\RequestException $e) {
             StockHealth::down();
+            \App\Support\SyncLog::failure('levels', $e->getMessage());
             throw $e; // la caché anterior queda intacta
         }
         StockHealth::up();
@@ -78,6 +79,7 @@ class StockLevelService
 
         Cache::forever(self::CACHE_KEY_LEVELS, $levels);
         Cache::forever(self::CACHE_KEY_LAST_SYNC, now()->toDateTimeString());
+        \App\Support\SyncLog::success('levels');
 
         // El ERP prevalece sobre los ajustes manuales que ya no coinciden con lo que trae.
         ExistenciaOverride::reconciliarConErp($this->cantidadesPorClave($levels));
@@ -111,6 +113,7 @@ class StockLevelService
 
         Cache::forever(self::CACHE_KEY_LEVELS, array_values($levels));
         Cache::forever(self::CACHE_KEY_LAST_SYNC, now()->toDateTimeString());
+        \App\Support\SyncLog::success('levels');
 
         ExistenciaOverride::reconciliarConErp($this->cantidadesPorClave([$level]));
 

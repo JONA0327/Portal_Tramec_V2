@@ -386,6 +386,13 @@
         .filtros-barra .filtro-check input { flex: none; width: 16px; height: 16px; min-width: 16px; padding: 0; margin: 0; }
         .filtros-barra .btn { flex: 0 0 auto; white-space: nowrap; }
         .form-control[type="file"] { height: auto; padding: 9px 10px; } /* el tema fija input{height:40px} */
+        /* "Mostrar 10 25 50 100 registros": siempre en una sola línea (en teléfono, más compacto). */
+        .por-pagina { flex-wrap: nowrap; }
+        .por-pagina .por-pagina-texto { white-space: nowrap; }
+        @media (max-width: 575px) {
+            .por-pagina { gap: 6px !important; font-size: 13px; }
+            .por-pagina .btn { padding: 3px 9px; }
+        }
         /* Los tres filtros (empresa / estado o almacén / clasificación): en escritorio se ven como siempre; en teléfono y
            tablet chica se esconden detrás del botón "Filtros" para que el listado se vea de entrada. */
         .filtros-extra { display: contents; }

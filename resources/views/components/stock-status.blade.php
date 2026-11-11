@@ -4,8 +4,7 @@
     $since = \App\Support\StockHealth::downSince();
 @endphp
 <div id="stock-status" class="alert alert-warning" @if(!$since) hidden @endif>
-    ⚠ El servicio de existencias no responde (desde <span id="stock-status-since">{{ $since ? \Illuminate\Support\Carbon::parse($since)->locale('es')->diffForHumans() : '' }}</span>),
-    así que los datos <strong>no se muestran en tiempo real</strong>.
+    ⚠ <strong>Conexión en tiempo real no disponible temporalmente</strong> (desde <span id="stock-status-since">{{ $since ? \Illuminate\Support\Carbon::parse($since)->locale('es')->diffForHumans() : '' }}</span>).
     @if($lastSync)
         Última actualización: {{ \Illuminate\Support\Carbon::parse($lastSync)->format('d/m/Y H:i') }}.
     @else

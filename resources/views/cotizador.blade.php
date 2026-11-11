@@ -25,13 +25,12 @@
                             <h6 class="mb-3">Productos en el carrito</h6>
 
                                 <div class="mb-3" style="max-width: 420px;">
-                                    <label class="form-label" for="precio_base">Canal (precio que se cotiza)</label>
+                                    <label class="form-label" for="precio_base">Poner todos a precio de:</label>
                                     <select id="precio_base" name="precio_base" class="form-control">
                                         @foreach($columnas as $clave => $etiqueta)
                                             <option value="{{ $clave }}" @selected(old('precio_base', $c->precio_base) === $clave)>{{ $etiqueta }}</option>
                                         @endforeach
                                     </select>
-                                    <div class="form-text">Al elegir el canal, los productos toman el precio de ese canal. Puedes cambiar el precio de cada producto a mano.</div>
                                 </div>
 
 

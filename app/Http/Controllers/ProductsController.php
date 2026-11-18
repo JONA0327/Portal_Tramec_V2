@@ -49,7 +49,7 @@ class ProductsController extends Controller
     public function index(Request $request, StockService $stock, PriceAdjuster $adjuster): View
     {
         $buscar = trim((string) $request->query('buscar', ''));
-        $empresa = trim((string) $request->query('empresa', ''));
+        $marca = trim((string) $request->query('marca', ''));
         $estado = trim((string) $request->query('estado', ''));
         // Clasificación = campo "Tipo de producto" (products.kind_of_product), como en v1.
         $clasificacion = trim((string) $request->query('clasificacion', ''));
@@ -61,12 +61,6 @@ class ProductsController extends Controller
             ->reject(fn (array $item) => $this->isOneOffErpItem($item))
             // Dados de baja desde el portal: se ignoran aunque CONTPAQi los siga devolviendo (no salen como "nuevos").
             ->reject(fn (array $item) => ProductoBaja::esBaja($item['empresa_codigo'] ?? 'TRAMEC', $item['codigo'] ?? ''));
-
-        $empresas = $catalog
-            ->map(fn (array $item) => $item['empresa_codigo'] ?? 'TRAMEC')
-            ->unique()
-            ->sort()
-            ->values();
 
         $localByKey = Product::query()
             ->whereNotNull('idERP')->where('idERP', '!=', '')
@@ -88,6 +82,7 @@ class ProductsController extends Controller
                 'empresa' => $empresaCodigo,
                 'local_id' => $local?->id,
                 'clasificacion' => $local?->kind_of_product ?: null,
+                'marca' => $local?->brand ?: null,
                 'precios' => $precios,
                 'originales' => $originales,
                 'temporales' => $temporales,
@@ -114,6 +109,7 @@ class ProductsController extends Controller
                 'empresa' => null,
                 'local_id' => $p->id,
                 'clasificacion' => $p->kind_of_product ?: null,
+                'marca' => $p->brand ?: null,
                 'precios' => $precios,
                 'originales' => $originales,
                 'temporales' => $temporales,
@@ -141,8 +137,8 @@ class ProductsController extends Controller
 
         $filtered = $allRows;
 
-        if ($empresa !== '') {
-            $filtered = $filtered->filter(fn (array $r) => $r['empresa'] === $empresa);
+        if ($marca !== '') {
+            $filtered = $filtered->filter(fn (array $r) => $marca === '__sin' ? $r['marca'] === null : $r['marca'] === $marca);
         }
 
         if ($estado !== '') {
@@ -174,11 +170,11 @@ class ProductsController extends Controller
             'products' => $paginated,
             'perPage' => $perPage,
             'buscar' => $buscar,
-            'empresa' => $empresa,
+            'marca' => $marca,
+            'marcas' => Product::whereNotNull('brand')->where('brand', '!=', '')->distinct()->orderBy('brand')->pluck('brand'),
             'estado' => $estado,
             'clasificacion' => $clasificacion,
             'clasificaciones' => Product::whereNotNull('kind_of_product')->where('kind_of_product', '!=', '')->distinct()->orderBy('kind_of_product')->pluck('kind_of_product'),
-            'empresas' => $empresas,
             'counts' => $counts,
             'cliente' => $cliente,
             'lastSyncAt' => $stock->lastSyncAt(),

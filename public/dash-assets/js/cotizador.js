@@ -118,6 +118,27 @@
         }
     });
 
+    // Renglón libre: el botón abre / cierra la cajita de captura.
+    document.addEventListener('click', function (e) {
+        if (e.target.closest && e.target.closest('[data-libre-toggle]')) {
+            var caja = document.getElementById('libre-caja');
+            if (caja) { caja.hidden = !caja.hidden; }
+        }
+    });
+
+    // Al cambiar la serie se propone el siguiente folio de esa serie (salvo que el folio ya se haya escrito a mano).
+    var serie = document.getElementById('serie'), folioNum = document.getElementById('folio_numero'), folioEditado = false;
+    if (serie && folioNum && window.fetch) {
+        folioNum.addEventListener('input', function () { folioEditado = true; });
+        serie.addEventListener('change', function () {
+            if (folioEditado) { return; }
+            fetch(form.getAttribute('data-url-folio') + '?serie=' + encodeURIComponent(serie.value.trim()), { headers: { Accept: 'application/json' }, credentials: 'same-origin' })
+                .then(function (r) { return r.json(); })
+                .then(function (d) { folioNum.value = d.siguiente; modificado(); })
+                .catch(function () { /* se queda el folio que había */ });
+        });
+    }
+
     // Dos pasos en la misma página: primero el carrito, luego los datos de la cotización y los PDF.
     form.addEventListener('click', function (e) {
         var b = e.target.closest ? e.target.closest('[data-paso]') : null;

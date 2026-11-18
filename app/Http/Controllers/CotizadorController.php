@@ -103,7 +103,11 @@ class CotizadorController extends Controller
             return redirect()->route('cotizador')->withErrors(['moneda' => "No hay productos en {$moneda}."]);
         }
 
-        $folio = $cotizacion->asignarFolio();
+        if ($cotizacion->folio_numero === null) {
+            $cotizacion->update(['folio_numero' => Cotizacion::siguienteFolio($cotizacion->serie)]);
+        }
+
+        $folio = $cotizacion->folioCompleto();
         // Con más de una moneda cada PDF es una cotización distinta: el folio lleva el sufijo de la moneda.
         $folioPdf = count($grupos) > 1 ? ($folio !== '' ? "{$folio}-{$moneda}" : $moneda) : $folio;
 
@@ -131,9 +135,83 @@ class CotizadorController extends Controller
             $q->where('user_id', $request->user()->id); // cada quien ve las suyas; el administrador, todas
         }
 
+        // Filtros: folio, cliente y fecha (nada más).
+        $folio = trim((string) $request->query('folio', ''));
+        $cliente = trim((string) $request->query('cliente', ''));
+        $fecha = trim((string) $request->query('fecha', ''));
+
+        $escape = fn (string $t) => addcslashes($t, '%_\\');
+        $folio !== '' && $q->where('folio', 'like', '%'.$escape($folio).'%');
+        $cliente !== '' && $q->where('cliente_empresa', 'like', '%'.$escape($cliente).'%');
+        preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha) && $q->whereDate('fecha', $fecha);
+
         $porPagina = \App\Support\PorPagina::desde($request, 20); // 10 / 25 / 50 / 100, como en Productos
 
-        return view('cotizador-historial', ['registros' => $q->paginate($porPagina)->withQueryString(), 'porPagina' => $porPagina, 'verUsuario' => $request->user()->isAdmin()]);
+        return view('cotizador-historial', [
+            'registros' => $q->paginate($porPagina)->withQueryString(),
+            'porPagina' => $porPagina,
+            'verUsuario' => $request->user()->isAdmin(),
+            'filtros' => ['folio' => $folio, 'cliente' => $cliente, 'fecha' => $fecha],
+            'carritoItems' => Cotizacion::where('user_id', $request->user()->id)->withCount('items')->first()?->items_count ?? 0,
+        ]);
+    }
+
+    /** "Editar": vacía el carrito y lo vuelve a llenar con lo de esa cotización para generarla de nuevo (con las modificaciones). */
+    public function historialEditar(Request $request, CotizacionHistorial $registro): RedirectResponse
+    {
+        abort_unless($request->user()->isAdmin() || $registro->user_id === $request->user()->id, 404);
+
+        $d = $registro->datos;
+        $campos = ['vigencia', 'cliente_empresa', 'cliente_atencion', 'cliente_telefono', 'condiciones_pago', 'terminos',
+            'emisor', 'emisor_email', 'emisor_telefono', 'precio_base', 'descuento_pct', 'iva_pct'];
+
+        \Illuminate\Support\Facades\DB::transaction(function () use ($request, $registro, $d, $campos) {
+            Cotizacion::where('user_id', $request->user()->id)->delete(); // los renglones se van en cascada
+
+            $c = Cotizacion::create(collect($d['cotizacion'])->only($campos)->map(fn ($v) => $v ?? '')->all() + [
+                'user_id' => $request->user()->id,
+                'fecha' => now()->toDateString(),
+                'serie' => $registro->serie,
+                'folio_numero' => $registro->folio_numero,
+                'folio' => Cotizacion::armarFolio($registro->serie, $registro->folio_numero),
+            ]);
+
+            foreach ($d['items'] as $item) {
+                $c->items()->create(collect($item)->only(['empresa', 'codigo', 'descripcion', 'moneda', 'precios', 'precio_manual', 'cantidad', 'unidad', 'tiempo_entrega', 'canal'])->all());
+            }
+        });
+
+        return redirect()->route('cotizador')->with('status', 'Cotización cargada en el carrito para editarla y generarla de nuevo.');
+    }
+
+    /** Folio sugerido al cambiar la serie en pantalla. */
+    public function siguienteFolio(Request $request): \Illuminate\Http\JsonResponse
+    {
+        return response()->json(['siguiente' => Cotizacion::siguienteFolio((string) $request->query('serie', ''))]);
+    }
+
+    /** Renglón libre: código y descripción de texto libre (otros productos o servicios) con su precio y moneda. */
+    public function libre(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'libre_codigo' => ['required', 'string', 'max:100'],
+            'libre_descripcion' => ['nullable', 'string', 'max:500'],
+            'libre_moneda' => ['required', Rule::in(['MXN', 'USD'])],
+            'libre_precio' => ['nullable', 'numeric', 'min:0', 'max:100000000'],
+        ]);
+
+        Cotizacion::deUsuario($request->user())->items()->create([
+            'empresa' => null,
+            'codigo' => trim($data['libre_codigo']),
+            'descripcion' => $data['libre_descripcion'] ?? null,
+            'moneda' => $data['libre_moneda'],
+            'precios' => [],
+            'precio_manual' => (float) ($data['libre_precio'] ?? 0),
+            'cantidad' => 1,
+            'unidad' => 'PZA.',
+        ]);
+
+        return back()->with('status', 'Renglón libre agregado.');
     }
 
     public function historialPdf(Request $request, CotizacionHistorial $registro): Response
@@ -208,7 +286,8 @@ class CotizadorController extends Controller
 
         $data = $request->validate([
             'fecha' => ['required', 'date'],
-            'folio' => ['nullable', 'string', 'max:60'],
+            'serie' => ['nullable', 'string', 'max:10', 'regex:/^[A-Za-z0-9._-]*$/'],
+            'folio_numero' => ['nullable', 'integer', 'min:0', 'max:99999999'],
             'vigencia' => ['nullable', 'string', 'max:60'],
             'cliente_empresa' => ['nullable', 'string', 'max:191'],
             'cliente_atencion' => ['nullable', 'string', 'max:191'],
@@ -230,7 +309,18 @@ class CotizadorController extends Controller
             'items.*.canal' => ['nullable', Rule::in($columnas)],
         ]);
 
-        $cotizacion->update(collect($data)->except('items')->map(fn ($v) => $v ?? '')->all() + [
+        $serie = mb_strtoupper(trim((string) ($data['serie'] ?? '')));
+        $numero = ($data['folio_numero'] ?? '') === '' ? null : (int) $data['folio_numero'];
+
+        // Cada usuario conserva la última serie que usó para sus próximas cotizaciones.
+        if ((string) $request->user()->cotizacion_serie !== $serie) {
+            \Illuminate\Support\Facades\DB::table('users')->where('id', $request->user()->id)->update(['cotizacion_serie' => $serie ?: null]);
+        }
+
+        $cotizacion->update(collect($data)->except(['items', 'serie', 'folio_numero'])->map(fn ($v) => $v ?? '')->all() + [
+            'serie' => $serie ?: null,
+            'folio_numero' => $numero,
+            'folio' => Cotizacion::armarFolio($serie, $numero),
             'descuento_pct' => $data['descuento_pct'] ?? 0,
             'iva_pct' => $data['iva_pct'] ?? 0,
         ]);

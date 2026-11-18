@@ -41,6 +41,9 @@ Route::middleware(['auth', 'verified', 'can:cotizar'])->prefix('cotizador')->nam
     Route::post('/guardar', [CotizadorController::class, 'guardar'])->name('.guardar');
     Route::post('/pdf/{moneda}', [CotizadorController::class, 'pdf'])->name('.pdf');
     Route::get('/historial', [CotizadorController::class, 'historial'])->name('.historial');
+    Route::post('/historial/{registro}/editar', [CotizadorController::class, 'historialEditar'])->name('.historial.editar');
+    Route::get('/siguiente-folio', [CotizadorController::class, 'siguienteFolio'])->name('.siguiente-folio');
+    Route::post('/libre', [CotizadorController::class, 'libre'])->name('.libre');
     Route::get('/historial/{registro}/pdf', [CotizadorController::class, 'historialPdf'])->name('.historial.pdf');
     Route::delete('/historial/{registro}', [CotizadorController::class, 'historialEliminar'])->name('.historial.eliminar');
     Route::delete('/items/{item}', [CotizadorController::class, 'quitar'])->name('.quitar');

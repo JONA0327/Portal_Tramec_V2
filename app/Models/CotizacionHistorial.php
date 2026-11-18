@@ -10,7 +10,7 @@ class CotizacionHistorial extends Model
 {
     protected $table = 'cotizaciones_historial';
 
-    protected $fillable = ['user_id', 'folio', 'moneda', 'fecha', 'cliente_empresa', 'emisor', 'total', 'datos'];
+    protected $fillable = ['user_id', 'serie', 'folio_numero', 'folio', 'moneda', 'fecha', 'cliente_empresa', 'emisor', 'total', 'datos'];
 
     protected function casts(): array
     {
@@ -27,6 +27,8 @@ class CotizacionHistorial extends Model
     {
         return static::create([
             'user_id' => $userId,
+            'serie' => $c->serie,
+            'folio_numero' => $c->folio_numero,
             'folio' => $folio,
             'moneda' => $moneda,
             'fecha' => $c->fecha,

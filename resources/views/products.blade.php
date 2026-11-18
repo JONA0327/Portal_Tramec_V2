@@ -53,11 +53,12 @@
                                 <input type="hidden" name="por_pagina" value="{{ $perPage }}">
                                 <button type="button" class="btn btn-secondary filtros-toggle" aria-expanded="false" aria-controls="filtros-extra">Filtros</button>
                                 <div class="filtros-extra" id="filtros-extra">
-                                    <select name="empresa" class="form-control" aria-label="Empresa">
-                                        <option value="">Todas las empresas</option>
-                                        @foreach($empresas as $empresaOption)
-                                            <option value="{{ $empresaOption }}" @selected($empresa === $empresaOption)>{{ $empresaOption }}</option>
+                                    <select name="marca" class="form-control" aria-label="Marca">
+                                        <option value="">Todas las marcas</option>
+                                        @foreach($marcas as $marcaOption)
+                                            <option value="{{ $marcaOption }}" @selected($marca === $marcaOption)>{{ $marcaOption }}</option>
                                         @endforeach
+                                        <option value="__sin" @selected($marca === '__sin')>Sin marca</option>
                                     </select>
                                     @unless($cliente)
                                     <select name="estado" class="form-control" aria-label="Estado">
@@ -121,7 +122,6 @@
                                             @if($verId)<th>ID</th>@endif
                                             <th>Código</th>
                                             <th>Descripción</th>
-                                            <th>Empresa</th>
                                             @foreach($columnasPrecio as $label)
                                                 <th>{{ $label }}</th>
                                             @endforeach
@@ -154,7 +154,6 @@
                                                 @endif
                                                 <td class="col-codigo">{{ $row['codigo'] }}</td>
                                                 <td class="col-nombre">{{ $row['descripcion'] }}</td>
-                                                <td>{{ $row['empresa'] ?? '-' }}</td>
                                                 @foreach($columnasPrecio as $key => $label)
                                                     <td class="text-nowrap {{ $row['precios'][$key] !== null && $puedeCopiar ? 'copy-price-cell' : '' }} {{ isset($row['originales'][$key]) ? 'precio-ajustado' : '' }}"
                                                         @isset($row['originales'][$key]) title="Precio original: {{ number_format($row['originales'][$key], 2, '.', ',') }} (ajustado por regla)" @endisset

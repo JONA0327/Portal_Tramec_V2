@@ -51,11 +51,12 @@
                                 <input type="hidden" name="por_pagina" value="{{ $perPage }}">
                                 <button type="button" class="btn btn-secondary filtros-toggle" aria-expanded="false" aria-controls="filtros-extra">Filtros</button>
                                 <div class="filtros-extra" id="filtros-extra">
-                                    <select name="empresa" class="form-control" aria-label="Empresa">
-                                        <option value="">Todas las empresas</option>
-                                        @foreach($empresas as $empresaOption)
-                                            <option value="{{ $empresaOption }}" @selected($empresa === $empresaOption)>{{ $empresaOption }}</option>
+                                    <select name="marca" class="form-control" aria-label="Marca">
+                                        <option value="">Todas las marcas</option>
+                                        @foreach($marcas as $marcaOption)
+                                            <option value="{{ $marcaOption }}" @selected($marca === $marcaOption)>{{ $marcaOption }}</option>
                                         @endforeach
+                                        <option value="__sin" @selected($marca === '__sin')>Sin marca</option>
                                     </select>
                                     <select name="almacen" class="form-control" aria-label="Almacén">
                                         <option value="">Todos los almacenes</option>
@@ -156,12 +157,11 @@
                                             @if($puedeCotizar)<th style="width: 34px;"><input type="checkbox" class="sel-todos" aria-label="Seleccionar todos los de esta página"></th>@endif
                                             <th>Código</th>
                                             <th>Descripción</th>
-                                            <th>Empresa</th>
+                                            <th>Existencia por almacén</th>
+                                            <th>Total</th>
                                             @foreach($columnasPrecio as $label)
                                                 <th>{{ $label }}</th>
                                             @endforeach
-                                            <th>Existencia por almacén</th>
-                                            <th>Total</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -173,7 +173,17 @@
                                                 @endif
                                                 <td class="col-codigo">{{ $row['codigo'] }}</td>
                                                 <td class="col-nombre">{{ $row['descripcion'] }}</td>
-                                                <td>{{ $row['empresa'] }}</td>
+                                                <td>
+                                                    @foreach($row['almacenes'] as $alm)
+                                                        <{{ $esAdmin ? 'a' : 'span' }} @if($esAdmin) href="{{ route('existencias.edit', [$alm['empresa'], $alm['id_producto'], $alm['id_almacen']]) }}" @endif
+                                                            class="d-inline-block border rounded px-2 py-1 mr-1 mb-1 text-nowrap text-decoration-none {{ $alm['de_baja'] ? 'text-muted' : '' }}"
+                                                            @if($esAdmin) title="Opciones de {{ $alm['almacen'] }}" @endif>
+                                                            {{ $alm['almacen'] }}:
+                                                            <strong>{{ rtrim(rtrim(number_format($alm['cantidad'], 2, '.', ','), '0'), '.') ?: '0' }}</strong>
+                                                        </{{ $esAdmin ? 'a' : 'span' }}>
+                                                    @endforeach
+                                                </td>
+                                                <td class="text-nowrap"><strong>{{ rtrim(rtrim(number_format($row['total'], 2, '.', ','), '0'), '.') ?: '0' }}</strong></td>
                                                 @foreach($columnasPrecio as $key => $label)
                                                     <td class="text-nowrap {{ $row[$key] !== null && $puedeCopiar ? 'copy-price-cell' : '' }} {{ isset($row['originales'][$key]) ? 'precio-ajustado' : '' }}"
                                                         @isset($row['originales'][$key]) title="Precio original: {{ number_format($row['originales'][$key], 2, '.', ',') }} (ajustado por regla)" @endisset
@@ -194,17 +204,6 @@
                                                         @endif
                                                     </td>
                                                 @endforeach
-                                                <td>
-                                                    @foreach($row['almacenes'] as $alm)
-                                                        <{{ $esAdmin ? 'a' : 'span' }} @if($esAdmin) href="{{ route('existencias.edit', [$alm['empresa'], $alm['id_producto'], $alm['id_almacen']]) }}" @endif
-                                                            class="d-inline-block border rounded px-2 py-1 mr-1 mb-1 text-nowrap text-decoration-none {{ $alm['de_baja'] ? 'text-muted' : '' }}"
-                                                            @if($esAdmin) title="Opciones de {{ $alm['almacen'] }}" @endif>
-                                                            {{ $alm['almacen'] }}:
-                                                            <strong>{{ rtrim(rtrim(number_format($alm['cantidad'], 2, '.', ','), '0'), '.') ?: '0' }}</strong>
-                                                        </{{ $esAdmin ? 'a' : 'span' }}>
-                                                    @endforeach
-                                                </td>
-                                                <td class="text-nowrap"><strong>{{ rtrim(rtrim(number_format($row['total'], 2, '.', ','), '0'), '.') ?: '0' }}</strong></td>
                                             </tr>
                                         @endforeach
                                     </tbody>
@@ -218,7 +217,6 @@
                                             @if($puedeCotizar)<th style="width: 34px;"><input type="checkbox" class="sel-todos" aria-label="Seleccionar todos los de esta página"></th>@endif
                                             <th>Código</th>
                                             <th>Descripción</th>
-                                            <th>Empresa</th>
                                             <th>Almacén</th>
                                             <th>Cantidad</th>
                                             @foreach($columnasPrecio as $label)
@@ -235,7 +233,6 @@
                                                 @endif
                                                 <td class="col-codigo">{{ $row['codigo'] }}</td>
                                                 <td class="col-nombre">{{ $row['descripcion'] }}</td>
-                                                <td>{{ $row['empresa'] }}</td>
                                                 <td class="col-almacen">{{ $row['almacen'] }}</td>
                                                 <td class="col-cantidad">
                                                     {{ rtrim(rtrim(number_format($row['cantidad'], 2, '.', ','), '0'), '.') ?: '0' }}

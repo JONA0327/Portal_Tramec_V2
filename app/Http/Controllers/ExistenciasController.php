@@ -69,7 +69,7 @@ class ExistenciasController extends Controller
     public function index(Request $request, StockLevelService $stockLevels, StockService $stock, PriceAdjuster $adjuster): View
     {
         $buscar = trim((string) $request->query('buscar', ''));
-        $empresa = trim((string) $request->query('empresa', ''));
+        $marca = trim((string) $request->query('marca', ''));
         $almacen = trim((string) $request->query('almacen', ''));
         // Un enlace con ?estado=ocultos (sin formulario) lo pide expresamente; si no, vale lo guardado del usuario.
         $pideOcultos = $request->query('estado') === 'ocultos';
@@ -187,6 +187,7 @@ class ExistenciasController extends Controller
                 'de_baja' => $override?->de_baja ?? false,
                 'moneda' => $precios?->base_currency ?: 'MXN',
                 'clasificacion' => $precios?->kind_of_product ?: null,
+                'marca' => $precios?->brand ?: null,
                 ...$precioFinal,
                 'originales' => $precioOriginal,
                 'temporales' => $precioTemporal,
@@ -213,11 +214,10 @@ class ExistenciasController extends Controller
             $filtered = $rows->where('oculto', false)->filter(fn (array $r) => $r['cantidad'] > 0);
         }
 
-        $empresas = $rows->pluck('empresa')->unique()->sort()->values();
         $almacenes = $rows->pluck('almacen')->unique()->sort()->values();
 
-        if ($empresa !== '') {
-            $filtered = $filtered->filter(fn (array $r) => $r['empresa'] === $empresa);
+        if ($marca !== '') {
+            $filtered = $filtered->filter(fn (array $r) => $marca === '__sin' ? $r['marca'] === null : $r['marca'] === $marca);
         }
 
         if ($almacen !== '') {
@@ -266,12 +266,12 @@ class ExistenciasController extends Controller
             'perPage' => $perPage,
             'agrupar' => $agrupar,
             'buscar' => $buscar,
-            'empresa' => $empresa,
+            'marca' => $marca,
+            'marcas' => Product::whereNotNull('brand')->where('brand', '!=', '')->distinct()->orderBy('brand')->pluck('brand'),
             'almacen' => $almacen,
             'estado' => $estado,
             'clasificacion' => $clasificacion,
             'clasificaciones' => Product::whereNotNull('kind_of_product')->where('kind_of_product', '!=', '')->distinct()->orderBy('kind_of_product')->pluck('kind_of_product'),
-            'empresas' => $empresas,
             'almacenes' => $almacenes,
             'counts' => $counts,
             'lastSyncAt' => $stockLevels->lastSyncAt(),

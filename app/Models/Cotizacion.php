@@ -18,7 +18,7 @@ class Cotizacion extends Model
     public const TERMINOS_PREDETERMINADOS = "* Los precios son expresados en el tipo de moneda indicado.\n* Tiempo de entrega sobre previa venta.\n* Precios sujetos a cambio sin previo aviso debido a la fluctuación del mercado.";
 
     protected $fillable = [
-        'user_id', 'fecha', 'folio', 'vigencia', 'cliente_empresa', 'cliente_atencion', 'cliente_telefono', 'condiciones_pago',
+        'user_id', 'fecha', 'serie', 'folio_numero', 'folio', 'vigencia', 'cliente_empresa', 'cliente_atencion', 'cliente_telefono', 'condiciones_pago',
         'terminos', 'emisor', 'emisor_email', 'emisor_telefono', 'precio_base', 'descuento_pct', 'iva_pct',
     ];
 
@@ -27,24 +27,30 @@ class Cotizacion extends Model
         return ['fecha' => 'date', 'descuento_pct' => 'float', 'iva_pct' => 'float'];
     }
 
-    /** Folio consecutivo (COT-00001, COT-00002...). Se asigna una sola vez, al descargar el primer PDF; el contador no se reinicia. */
-    public function asignarFolio(): string
+    /**
+     * Folio sugerido para una serie: el siguiente número consecutivo de las cotizaciones GUARDADAS en el historial con esa
+     * serie (empieza en 1). El portal permite folios repetidos: el usuario puede escribir cualquier número.
+     */
+    public static function siguienteFolio(?string $serie): int
     {
-        if ((string) $this->folio !== '') {
-            return $this->folio;
-        }
+        $serie = trim((string) $serie);
 
-        $folio = DB::transaction(function () {
-            DB::table('folio_secuencias')->insertOrIgnore(['serie' => 'COT', 'ultimo' => 0]);
-            $n = DB::table('folio_secuencias')->where('serie', 'COT')->lockForUpdate()->value('ultimo') + 1;
-            DB::table('folio_secuencias')->where('serie', 'COT')->update(['ultimo' => $n]);
+        $max = CotizacionHistorial::query()
+            ->where(fn ($q) => $serie === '' ? $q->whereNull('serie')->orWhere('serie', '') : $q->where('serie', $serie))
+            ->max('folio_numero');
 
-            return sprintf('COT-%05d', $n);
-        });
+        return ((int) $max) + 1;
+    }
 
-        $this->update(['folio' => $folio]);
+    /** Serie + número de 4 dígitos (JL0001); vacío si no hay número. */
+    public static function armarFolio(?string $serie, $numero): string
+    {
+        return $numero === null || $numero === '' ? '' : trim((string) $serie).str_pad((string) (int) $numero, 4, '0', STR_PAD_LEFT);
+    }
 
-        return $folio;
+    public function folioCompleto(): string
+    {
+        return self::armarFolio($this->serie, $this->folio_numero);
     }
 
     public function items(): HasMany
@@ -57,6 +63,8 @@ class Cotizacion extends Model
     {
         return static::firstOrCreate(['user_id' => $user->id], [
             'fecha' => now()->toDateString(),
+            'serie' => $user->cotizacion_serie,
+            'folio_numero' => self::siguienteFolio($user->cotizacion_serie),
             'vigencia' => '30 Días.',
             'condiciones_pago' => 'CONTADO',
             'terminos' => self::TERMINOS_PREDETERMINADOS,

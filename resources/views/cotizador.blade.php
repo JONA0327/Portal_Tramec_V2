@@ -18,7 +18,7 @@
                             <div class="alert alert-danger"><ul class="mb-0">@foreach($errors->all() as $e)<li>{{ $e }}</li>@endforeach</ul></div>
                         @endif
 
-                        <form id="form-cot" method="POST" action="{{ route('cotizador.guardar') }}" data-grupos="{{ count($grupos) }}" data-si-vacio="{{ route('existencias') }}">
+                        <form id="form-cot" data-url-folio="{{ route('cotizador.siguiente-folio') }}" method="POST" action="{{ route('cotizador.guardar') }}" data-grupos="{{ count($grupos) }}" data-si-vacio="{{ route('existencias') }}">
                             @csrf
 
                             <div id="paso-carrito" {{ $errors->any() ? 'hidden' : '' }}>
@@ -33,6 +33,22 @@
                                     </select>
                                 </div>
 
+
+                                <div class="mb-3">
+                                    <button type="button" class="btn btn-sm btn-secondary" data-libre-toggle>+ Añadir renglón libre</button>
+                                    <div id="libre-caja" class="border rounded p-2 mt-2" hidden>
+                                        <div class="row">
+                                            <div class="col-12 col-sm-4 mb-2"><input type="text" name="libre_codigo" form="form-libre" class="form-control" maxlength="100" placeholder="Código" required></div>
+                                            <div class="col-12 col-sm-8 mb-2"><input type="text" name="libre_descripcion" form="form-libre" class="form-control" maxlength="500" placeholder="Descripción (texto libre)"></div>
+                                            <div class="col-6 col-sm-3 mb-2">
+                                                <select name="libre_moneda" form="form-libre" class="form-control" aria-label="Moneda"><option value="MXN">MXN</option><option value="USD">USD</option></select>
+                                            </div>
+                                            <div class="col-6 col-sm-3 mb-2"><input type="number" name="libre_precio" form="form-libre" class="form-control" min="0" step="0.01" placeholder="Precio unitario"></div>
+                                            <div class="col-12 col-sm-3 mb-2"><button type="submit" form="form-libre" class="btn btn-primary btn-block">Añadir al carrito</button></div>
+                                        </div>
+                                        <div class="form-text">Para otros productos o servicios que no están en el catálogo. La cantidad y el precio se pueden cambiar después en la lista.</div>
+                                    </div>
+                                </div>
 
                             @if($c->items->isEmpty())
                                 <p class="text-muted">El carrito está vacío. Marca productos en <a href="{{ route('products') }}">Productos</a> o <a href="{{ route('existencias') }}">Existencias</a> y usa "Agregar al carrito de cotización".</p>
@@ -72,7 +88,8 @@
                                                         <td data-label="Cantidad"><input type="number" name="items[{{ $it->id }}][cantidad]" value="{{ old("items.{$it->id}.cantidad", rtrim(rtrim(number_format($it->cantidad, 2, '.', ''), '0'), '.')) }}" class="form-control cot-cant" min="0.01" step="any" required></td>
                                                         <td data-label="Tiempo de entrega"><input type="text" name="items[{{ $it->id }}][tiempo_entrega]" value="{{ old("items.{$it->id}.tiempo_entrega", $it->tiempo_entrega) }}" class="form-control" maxlength="100"></td>
                                                         <td data-label="Canal">
-                                                            <select name="items[{{ $it->id }}][canal]" class="form-control cot-canal" aria-label="Canal de {{ $it->codigo }}">
+                                                            @if(empty($it->precios))<span class="text-muted small">Renglón libre</span>@endif
+                                                            <select name="items[{{ $it->id }}][canal]" class="form-control cot-canal" aria-label="Canal de {{ $it->codigo }}" @if(empty($it->precios)) hidden @endif>
                                                                 @foreach($columnas as $clave => $etiqueta)
                                                                     <option value="{{ $clave }}" @selected($canalFila === $clave)>{{ $etiqueta }}</option>
                                                                 @endforeach
@@ -114,8 +131,16 @@
                                     <input type="date" id="fecha" name="fecha" class="form-control" value="{{ old('fecha', $c->fecha?->format('Y-m-d')) }}" required>
                                 </div>
                                 <div class="col-12 col-sm-6 col-lg-3 mb-3">
-                                    <label class="form-label" for="folio">Folio</label>
-                                    <input type="text" id="folio" name="folio" class="form-control" value="{{ old('folio', $c->folio) }}" maxlength="60" placeholder="Automático (COT-00001...) si lo dejas vacío">
+                                    <div class="row">
+                                        <div class="col-5">
+                                            <label class="form-label" for="serie">Serie</label>
+                                            <input type="text" id="serie" name="serie" class="form-control text-uppercase" value="{{ old('serie', $c->serie) }}" maxlength="10" placeholder="Ej.: JL" autocomplete="off">
+                                        </div>
+                                        <div class="col-7">
+                                            <label class="form-label" for="folio_numero">Folio</label>
+                                            <input type="number" id="folio_numero" name="folio_numero" class="form-control" min="0" step="1" value="{{ old('folio_numero', $c->folio_numero ?? \App\Models\Cotizacion::siguienteFolio($c->serie)) }}">
+                                        </div>
+                                    </div>
                                 </div>
                                 <div class="col-12 col-sm-6 col-lg-3 mb-3">
                                     <label class="form-label" for="vigencia">Vigencia</label>
@@ -206,6 +231,8 @@
                             </div>
                             @endif
                         </form>
+
+                        <form id="form-libre" method="POST" action="{{ route('cotizador.libre') }}">@csrf</form>
 
                         @if($c->items->isNotEmpty())
                             <form id="form-vaciar" method="POST" action="{{ route('cotizador.vaciar') }}"

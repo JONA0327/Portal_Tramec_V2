@@ -40,11 +40,12 @@
                                         <div class="row">
                                             <div class="col-12 col-sm-4 mb-2"><input type="text" name="libre_codigo" form="form-libre" class="form-control" maxlength="100" placeholder="Código" required></div>
                                             <div class="col-12 col-sm-8 mb-2"><input type="text" name="libre_descripcion" form="form-libre" class="form-control" maxlength="500" placeholder="Descripción (texto libre)"></div>
-                                            <div class="col-6 col-sm-3 mb-2">
+                                            <div class="col-6 col-sm-2 mb-2"><input type="number" name="libre_cantidad" form="form-libre" class="form-control" min="0.01" step="any" value="1" placeholder="Cantidad" aria-label="Cantidad"></div>
+                                            <div class="col-6 col-sm-2 mb-2">
                                                 <select name="libre_moneda" form="form-libre" class="form-control" aria-label="Moneda"><option value="MXN">MXN</option><option value="USD">USD</option></select>
                                             </div>
-                                            <div class="col-6 col-sm-3 mb-2"><input type="number" name="libre_precio" form="form-libre" class="form-control" min="0" step="0.01" placeholder="Precio unitario"></div>
-                                            <div class="col-12 col-sm-3 mb-2"><input type="text" name="libre_tiempo_entrega" form="form-libre" class="form-control" maxlength="100" placeholder="Tiempo de entrega"></div>
+                                            <div class="col-6 col-sm-2 mb-2"><input type="number" name="libre_precio" form="form-libre" class="form-control" min="0" step="0.01" placeholder="Precio unitario"></div>
+                                            <div class="col-6 col-sm-3 mb-2"><input type="text" name="libre_tiempo_entrega" form="form-libre" class="form-control" maxlength="100" placeholder="Tiempo de entrega"></div>
                                             <div class="col-12 col-sm-3 mb-2"><button type="submit" form="form-libre" class="btn btn-primary btn-block">Añadir al carrito</button></div>
                                         </div>
                                         <div class="form-text">Para otros productos o servicios que no están en el catálogo. La cantidad y el precio se pueden cambiar después en la lista.</div>

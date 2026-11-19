@@ -178,6 +178,7 @@
     </style>
 </head>
 <body>
+    @include('partials.aviso-mantenimiento')
     <div class="ad-auth-wrapper">
         <div class="ad-auth-box">
 

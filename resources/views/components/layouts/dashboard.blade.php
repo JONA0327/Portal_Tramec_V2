@@ -417,6 +417,7 @@
 
 </head>
 <body>
+    @include('partials.aviso-mantenimiento')
     <script>
         {{-- Restaura el colapsado guardado (ver observer al final del body) solo en escritorio:
              en móvil "mini-sidebar" abre el menú como overlay, así que arrancar con esa clase

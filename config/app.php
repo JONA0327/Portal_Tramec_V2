@@ -16,6 +16,18 @@ return [
     'name' => env('APP_NAME', 'Laravel'),
 
     /*
+    | Mantenimiento (variables de entorno):
+    |  PORTAL_MANTENIMIENTO=true        nadie entra: todos ven la pantalla de mantenimiento (503).
+    |  PORTAL_MANTENIMIENTO_MENSAJE     texto de esa pantalla.
+    |  PORTAL_AVISO_ACTIVO=false        quita el aviso amarillo de mantenimiento programado.
+    |  PORTAL_AVISO_TEXTO               texto del aviso amarillo.
+    */
+    'mantenimiento' => env('PORTAL_MANTENIMIENTO', false),
+    'mantenimiento_mensaje' => env('PORTAL_MANTENIMIENTO_MENSAJE', 'Estamos realizando trabajos de mantenimiento. Volveremos a estar en línea muy pronto.'),
+    'aviso_activo' => env('PORTAL_AVISO_ACTIVO', true),
+    'aviso_texto' => env('PORTAL_AVISO_TEXTO', 'Aviso: el portal estará en mantenimiento el viernes a las 3:00 p. m. Durante ese tiempo no se podrá ingresar.'),
+
+    /*
     |--------------------------------------------------------------------------
     | Application Environment
     |--------------------------------------------------------------------------

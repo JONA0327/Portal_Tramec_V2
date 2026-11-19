@@ -20,6 +20,9 @@ return Application::configure(basePath: dirname(__DIR__))
         // confiara con '*', cualquiera podría falsificar X-Forwarded-For y saltarse el límite
         // de intentos de login por IP (ver LoginRequest::throttleKey()).
 
+        // Modo mantenimiento por .env (ver config/app.php): va primero para bloquear antes que cualquier otra cosa.
+        $middleware->prepend(\App\Http\Middleware\PortalMantenimiento::class);
+
         $middleware->alias([
             'nivel' => \App\Http\Middleware\EnsureLevelCanAccess::class,
             'nostore' => \App\Http\Middleware\NoStore::class,

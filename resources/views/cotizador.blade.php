@@ -44,6 +44,7 @@
                                                 <select name="libre_moneda" form="form-libre" class="form-control" aria-label="Moneda"><option value="MXN">MXN</option><option value="USD">USD</option></select>
                                             </div>
                                             <div class="col-6 col-sm-3 mb-2"><input type="number" name="libre_precio" form="form-libre" class="form-control" min="0" step="0.01" placeholder="Precio unitario"></div>
+                                            <div class="col-12 col-sm-3 mb-2"><input type="text" name="libre_tiempo_entrega" form="form-libre" class="form-control" maxlength="100" placeholder="Tiempo de entrega"></div>
                                             <div class="col-12 col-sm-3 mb-2"><button type="submit" form="form-libre" class="btn btn-primary btn-block">Añadir al carrito</button></div>
                                         </div>
                                         <div class="form-text">Para otros productos o servicios que no están en el catálogo. La cantidad y el precio se pueden cambiar después en la lista.</div>

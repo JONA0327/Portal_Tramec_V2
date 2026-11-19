@@ -198,6 +198,7 @@ class CotizadorController extends Controller
             'libre_descripcion' => ['nullable', 'string', 'max:500'],
             'libre_moneda' => ['required', Rule::in(['MXN', 'USD'])],
             'libre_precio' => ['nullable', 'numeric', 'min:0', 'max:100000000'],
+            'libre_tiempo_entrega' => ['nullable', 'string', 'max:100'],
         ]);
 
         Cotizacion::deUsuario($request->user())->items()->create([
@@ -209,6 +210,7 @@ class CotizadorController extends Controller
             'precio_manual' => (float) ($data['libre_precio'] ?? 0),
             'cantidad' => 1,
             'unidad' => 'PZA.',
+            'tiempo_entrega' => $data['libre_tiempo_entrega'] ?? null,
         ]);
 
         return back()->with('status', 'Renglón libre agregado.');

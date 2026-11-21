@@ -24,15 +24,22 @@ class PriceRulesController extends Controller
     private function catalogo(StockService $stock): \Illuminate\Support\Collection
     {
         $descripciones = Product::query()->whereNotNull('idERP')->where('idERP', '!=', '')->whereNotNull('idERP_empresa')
-            ->get(['idERP', 'idERP_empresa', 'description_short'])
-            ->mapWithKeys(fn (Product $p) => [strtoupper($p->idERP_empresa).':'.$p->idERP => $p->description_short]);
+            ->get(['idERP', 'idERP_empresa', 'description_short', 'brand'])
+            ->mapWithKeys(fn (Product $p) => [strtoupper($p->idERP_empresa).':'.$p->idERP => $p]);
 
         return collect($stock->getProducts())->map(function (array $p) use ($descripciones) {
-            $p['nombre'] = $descripciones->get(strtoupper($p['empresa_codigo'] ?? 'TRAMEC').':'.($p['id'] ?? ''))
-                ?: ($p['nombre'] ?? '');
+            $local = $descripciones->get(strtoupper($p['empresa_codigo'] ?? 'TRAMEC').':'.($p['id'] ?? ''));
+            $p['nombre'] = $local?->description_short ?: ($p['nombre'] ?? '');
+            $p['marca'] = $local?->brand ?: null;
 
             return $p;
         });
+    }
+
+    /** Marcas disponibles para el filtro (products.brand, en mayúsculas). */
+    private function marcas(): \Illuminate\Support\Collection
+    {
+        return Product::whereNotNull('brand')->where('brand', '!=', '')->pluck('brand')->map(fn ($b) => mb_strtoupper(trim($b)))->unique()->sort()->values();
     }
 
     public function index(StockService $stock): View
@@ -41,7 +48,7 @@ class PriceRulesController extends Controller
         $rules = PriceRule::orderBy('id')->get();
 
         $counts = $rules->mapWithKeys(fn (PriceRule $r) => [
-            $r->id => $catalog->filter(fn (array $p) => $r->matches((string) ($p['codigo'] ?? ''), (string) ($p['nombre'] ?? '')))->count(),
+            $r->id => $catalog->filter(fn (array $p) => $r->matchesMarca($p['marca'] ?? null) && $r->matches((string) ($p['codigo'] ?? ''), (string) ($p['nombre'] ?? '')))->count(),
         ]);
 
         return view('precios.index', ['usuariosPorId' => User::whereIn('id', $rules->pluck('usuarios')->merge($rules->pluck('usuarios_excluidos'))->flatten()->filter()->unique())->get()->keyBy('id'), 'rules' => $rules, 'counts' => $counts, 'totalCatalog' => $catalog->count()]);
@@ -49,7 +56,7 @@ class PriceRulesController extends Controller
 
     public function create(StockService $stock): View
     {
-        return view('precios.form', ['catalogo' => $this->previewItems($stock), 'users' => User::orderBy('first_name')->get(['id', 'first_name', 'last_name', 'email']), 'rule' => new PriceRule([
+        return view('precios.form', ['catalogo' => $this->previewItems($stock), 'users' => User::orderBy('first_name')->get(['id', 'first_name', 'last_name', 'email']), 'marcas' => $this->marcas(), 'rule' => new PriceRule([
             'tipo' => 'descuento',
             'campo' => 'ambos',
             'columnas' => array_keys(PriceRule::COLUMNAS),
@@ -71,7 +78,7 @@ class PriceRulesController extends Controller
 
     public function edit(PriceRule $priceRule, StockService $stock): View
     {
-        return view('precios.form', ['catalogo' => $this->previewItems($stock), 'users' => User::orderBy('first_name')->get(['id', 'first_name', 'last_name', 'email']), 'rule' => $priceRule]);
+        return view('precios.form', ['catalogo' => $this->previewItems($stock), 'users' => User::orderBy('first_name')->get(['id', 'first_name', 'last_name', 'email']), 'marcas' => $this->marcas(), 'rule' => $priceRule]);
     }
 
     public function update(Request $request, PriceRule $priceRule): RedirectResponse
@@ -139,7 +146,7 @@ class PriceRulesController extends Controller
                 $codigo = trim($p['codigo'] ?? '-');
                 $l = $locales->get(Codigo::normalizar($codigo));
 
-                return ['c' => $codigo, 'n' => $p['nombre'] ?? '', 'l' => $l ? (float) $l->list_price : null, 'p' => $l && $l->price1 > 0 ? (float) $l->price1 : null];
+                return ['c' => $codigo, 'm' => mb_strtoupper((string) ($p['marca'] ?? '')), 'n' => $p['nombre'] ?? '', 'l' => $l ? (float) $l->list_price : null, 'p' => $l && $l->price1 > 0 ? (float) $l->price1 : null];
             })->values()->all(),
         ];
     }
@@ -156,6 +163,8 @@ class PriceRulesController extends Controller
             'columnas.*' => [Rule::in(array_keys(PriceRule::COLUMNAS))],
             'niveles' => ['nullable', 'array'],
             'niveles.*' => [Rule::in(array_keys(PriceRule::NIVELES))],
+            'marcas' => ['nullable', 'array'],
+            'marcas.*' => ['string', 'max:100'],
             'incluidos' => ['nullable', 'array', 'max:5000'],
             'incluidos.*' => ['string', 'max:100'],
             'precios1' => ['nullable', 'array', 'max:5000'],
@@ -183,6 +192,7 @@ class PriceRulesController extends Controller
         $data['niveles'] = array_map('intval', $data['niveles'] ?? []) ?: null;
         $data['usuarios'] = array_map('intval', $data['usuarios'] ?? []) ?: null;
         $data['usuarios_excluidos'] = array_map('intval', $data['usuarios_excluidos'] ?? []) ?: null;
+        $data['marcas'] = array_values(array_unique(array_map(fn ($b) => mb_strtoupper(trim($b)), $data['marcas'] ?? []))) ?: null;
         $data['incluidos'] = array_values(array_unique(array_map(fn ($c) => strtoupper(trim($c)), $data['incluidos'] ?? []))) ?: null;
 
         return $data;

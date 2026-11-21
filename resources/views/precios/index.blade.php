@@ -61,6 +61,9 @@
                                                         «{{ $rule->buscar }}» en {{ $rule->campo === 'ambos' ? 'código o nombre' : $rule->campo }}
                                                         <small class="text-muted">({{ $counts[$rule->id] }} de {{ $totalCatalog }})</small>
                                                     @endif
+                                                    @if($rule->marcas)
+                                                        <div class="small text-muted">Marca: {{ implode(', ', $rule->marcas) }}</div>
+                                                    @endif
                                                     @if($rule->incluidos)
                                                         <div class="small text-muted" title="{{ implode(', ', $rule->incluidos) }}">Solo {{ count($rule->incluidos) }} elegido(s) a mano</div>
                                                     @endif

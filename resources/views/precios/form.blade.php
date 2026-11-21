@@ -81,6 +81,16 @@
                                             <option value="nombre" @selected(old('campo', $rule->campo) === 'nombre')>Solo descripción</option>
                                         </select>
                                     </div>
+                                    @php $selMarcas = array_map('mb_strtoupper', old('marcas', $rule->marcas ?? [])); @endphp
+                                    <div class="mb-2">
+                                        <span class="small font-weight-bold">Marca</span>
+                                        <span class="form-text d-inline">(sin marcar = todas las marcas)</span>
+                                        <div class="d-flex flex-wrap" style="gap: 4px 14px;">
+                                            @foreach($marcas as $marcaOpt)
+                                                <label class="mb-0"><input type="checkbox" class="filtro-marca" name="marcas[]" value="{{ $marcaOpt }}" @checked(in_array($marcaOpt, $selMarcas, true))> {{ $marcaOpt }}</label>
+                                            @endforeach
+                                        </div>
+                                    </div>
                                     <div id="preview-controles" class="d-flex flex-wrap align-items-center mb-2" style="gap: 8px;" hidden>
                                         <button type="button" class="btn btn-sm btn-outline-secondary" id="marcar-todos">Marcar todos</button>
                                         <button type="button" class="btn btn-sm btn-outline-secondary" id="marcar-ninguno">Quitar todos</button>
@@ -232,7 +242,10 @@
                 var terms = buscar.value.split(',').map(function (x) { return x.toLowerCase().split(/\s+/).filter(Boolean); }).filter(function (w) { return w.length; });
                 var donde = campo.value;
                 visibles = MAX;
-                items = !terms.length ? todos : todos.filter(function (i) {
+                var marcas = Array.prototype.filter.call(document.querySelectorAll('.filtro-marca'), function (c) { return c.checked; }).map(function (c) { return c.value; });
+                items = (!terms.length && !marcas.length) ? todos : todos.filter(function (i) {
+                    if (marcas.length && marcas.indexOf(i.m || '') < 0) { return false; }
+                    if (!terms.length) { return true; }
                     var texto = donde === 'codigo' ? i.tc : donde === 'nombre' ? i.tn : i.t;
                     return terms.some(function (words) { return words.every(function (w) { return texto.indexOf(w) >= 0; }); });
                 });
@@ -310,6 +323,7 @@
             var pausa = null;
             buscar.addEventListener('input', function () { clearTimeout(pausa); pausa = setTimeout(refresh, 120); });
             campo.addEventListener('change', refresh);
+            Array.prototype.forEach.call(document.querySelectorAll('.filtro-marca'), function (c) { c.addEventListener('change', refresh); });
 
             // "Mostrar en $0.00" no usa porcentaje
             var tipo = document.getElementById('tipo'), bloquePct = document.getElementById('bloque-porcentaje'), pct = document.getElementById('porcentaje');

@@ -43,7 +43,7 @@ class PriceRule extends Model
 
     private const CAMPO_PRECIO = ['canal_tmc' => 'price2', 'canal' => 'price3', 'oem' => 'price4', 'usuario_final' => 'price5'];
 
-    protected $fillable = ['nombre', 'tipo', 'porcentaje', 'buscar', 'campo', 'incluidos', 'columnas', 'niveles', 'usuarios', 'usuarios_excluidos', 'activo'];
+    protected $fillable = ['nombre', 'tipo', 'porcentaje', 'buscar', 'campo', 'incluidos', 'marcas', 'columnas', 'niveles', 'usuarios', 'usuarios_excluidos', 'activo'];
 
     protected function casts(): array
     {
@@ -54,6 +54,7 @@ class PriceRule extends Model
             'usuarios' => 'array',
             'usuarios_excluidos' => 'array',
             'incluidos' => 'array',
+            'marcas' => 'array',
             'activo' => 'boolean',
         ];
     }
@@ -134,9 +135,15 @@ class PriceRule extends Model
             && (empty($this->usuarios) || ($user !== null && in_array($user->id, array_map('intval', $this->usuarios), true)));
     }
 
-    public function appliesTo(string $column, string $codigo, string $nombre): bool
+    public function appliesTo(string $column, string $codigo, string $nombre, ?string $marca = null): bool
     {
-        return in_array($column, $this->columnas ?? [], true) && $this->matches($codigo, $nombre);
+        return in_array($column, $this->columnas ?? [], true) && $this->matchesMarca($marca) && $this->matches($codigo, $nombre);
+    }
+
+    /** Filtro por marca: sin marcas elegidas aplica a todo; con marcas, solo a productos de esa marca (sin marca conocida no aplica). */
+    public function matchesMarca(?string $marca): bool
+    {
+        return empty($this->marcas) || ($marca !== null && in_array(mb_strtoupper(trim($marca)), $this->marcas, true));
     }
 
     /**

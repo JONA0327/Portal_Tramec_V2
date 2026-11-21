@@ -8,7 +8,7 @@
      (Breeze), que ya valida 'email' + 'password' + 'remember'. --}}
 <x-layouts.auth>
 
-    <form method="POST" action="{{ route('login') }}">
+    <form method="POST" action="{{ route('login') }}" id="ad-login-form">
         @csrf
 
         <a href="/" class="ad-auth-logo">
@@ -33,12 +33,24 @@
             </x-auth.field>
         </div>
 
-        {{-- Widget de reCAPTCHA, igual que en v1. Solo se muestra: el formulario
-             todavía no valida "g-recaptcha-response" al hacer login. --}}
-        <div class="ad-auth-form">
-            {!! NoCaptcha::renderJs() !!}
-            {!! NoCaptcha::display() !!}
-        </div>
+        {{-- reCAPTCHA v3: la sitekey en .env está registrada como v3 (score), no admite
+             el widget de checkbox de v2. v3 no muestra nada visible: genera el token
+             en background y lo manda en el campo oculto "g-recaptcha-response". El
+             formulario todavía no valida ese token al hacer login (ver LoginRequest). --}}
+        <input type="hidden" name="g-recaptcha-response" id="g-recaptcha-response">
+        <script src="https://www.google.com/recaptcha/api.js?render={{ config('captcha.sitekey') }}"></script>
+        <script>
+            document.getElementById('ad-login-form').addEventListener('submit', function (e) {
+                e.preventDefault();
+                var form = e.target;
+                grecaptcha.ready(function () {
+                    grecaptcha.execute('{{ config('captcha.sitekey') }}', { action: 'login' }).then(function (token) {
+                        document.getElementById('g-recaptcha-response').value = token;
+                        form.submit();
+                    });
+                });
+            });
+        </script>
 
         <div class="ad-other-feilds">
             <div class="ad-checkbox">

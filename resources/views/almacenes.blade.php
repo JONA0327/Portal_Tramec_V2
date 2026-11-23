@@ -15,8 +15,11 @@
                             @if($stats['renamed'] > 0)
                                 &nbsp;·&nbsp;<span class="text-info">{{ $stats['renamed'] }} nombre(s) actualizado(s) desde CONTPAQi</span>
                             @endif
+                            @if(count($stats['auto_registrados']) > 0)
+                                &nbsp;·&nbsp;<span class="text-success">✅ {{ count($stats['auto_registrados']) }} registrado(s) automáticamente desde CONTPAQi</span>
+                            @endif
                             @if(count($stats['nuevos']) > 0)
-                                &nbsp;·&nbsp;<span class="text-info">🆕 {{ count($stats['nuevos']) }} nuevos</span>
+                                &nbsp;·&nbsp;<span class="text-info">🆕 {{ count($stats['nuevos']) }} nuevos (no se pudieron registrar solos, revisar)</span>
                             @endif
                             @if($stats['unmatched'] > 0)
                                 &nbsp;·&nbsp;<span class="text-warning">⚠ {{ $stats['unmatched'] }} sin emparejar</span>

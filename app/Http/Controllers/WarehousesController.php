@@ -17,7 +17,8 @@ use Illuminate\View\View;
  *
  * Tres estados por fila, igual que en productos:
  *  - normal:      almacén local emparejado con el ERP (nombre al día).
- *  - nuevo:       existe en el ERP pero todavía no hay almacén local para él.
+ *  - nuevo:       existe en el ERP pero no se pudo registrar solo (ver
+ *                 WarehouseErpMatcher::match()) — caso raro, requiere el botón.
  *  - advertencia: hay almacén local pero no se encontró en el catálogo actual
  *                 del ERP (ej. "MDG", deprecado, confirmado con el cliente).
  */
@@ -32,7 +33,7 @@ class WarehousesController extends Controller
             // Sin ERP: se muestran los almacenes locales tal cual, sin emparejar ni detectar nuevos.
             $total = Warehouse::count();
             $matched = Warehouse::query()->get()->filter->isMatched()->count();
-            $stats = ['matched_before' => $matched, 'renamed' => 0, 'matched_now' => 0, 'unmatched' => $total - $matched, 'total' => $total, 'nuevos' => []];
+            $stats = ['matched_before' => $matched, 'renamed' => 0, 'matched_now' => 0, 'unmatched' => $total - $matched, 'total' => $total, 'nuevos' => [], 'auto_registrados' => []];
         }
 
         $rows = Warehouse::query()->orderBy('id')->get()->map(fn (Warehouse $w) => [

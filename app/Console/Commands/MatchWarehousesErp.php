@@ -16,12 +16,13 @@ class MatchWarehousesErp extends Command
         $stats = $matcher->match();
 
         $this->info(sprintf(
-            'Total: %d | ya emparejados: %d | nombres actualizados: %d | emparejados ahora: %d | sin emparejar: %d | nuevos en el ERP: %d',
+            'Total: %d | ya emparejados: %d | nombres actualizados: %d | emparejados ahora: %d | sin emparejar: %d | registrados automáticamente: %d | pendientes de registrar a mano: %d',
             $stats['total'],
             $stats['matched_before'],
             $stats['renamed'],
             $stats['matched_now'],
             $stats['unmatched'],
+            count($stats['auto_registrados']),
             count($stats['nuevos']),
         ));
 

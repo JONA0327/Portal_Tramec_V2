@@ -50,11 +50,12 @@ class CotizadorController extends Controller
 
         $cotizacion = Cotizacion::deUsuario($request->user());
         $columnas = array_keys($request->user()->columnasPrecio());
+        $nivel = $request->user()->level !== null ? (int) $request->user()->level : null;
         $catalogo = collect($stock->enCache()); // solo la caché: con el servicio caído el carrito no debe esperar ni fallar
         $agregados = $repetidos = $omitidos = 0;
 
         foreach (array_unique($data['items']) as $key) {
-            $info = $this->resolver($key, $catalogo, $adjuster, $columnas);
+            $info = $this->resolver($key, $catalogo, $adjuster, $columnas, $nivel);
 
             if (! $info) {
                 $omitidos++;
@@ -360,7 +361,7 @@ class CotizadorController extends Controller
      *
      * @return array<string, mixed>|null
      */
-    private function resolver(string $key, $catalogo, PriceAdjuster $adjuster, array $columnas): ?array
+    private function resolver(string $key, $catalogo, PriceAdjuster $adjuster, array $columnas, ?int $nivel): ?array
     {
         $erp = null;
         $local = null;
@@ -404,7 +405,7 @@ class CotizadorController extends Controller
         $descripcion = $local?->description_short ?: ($erp['nombre'] ?? $override?->nombre ?? $local?->name2);
         $base = [
             'canal_tmc' => $local?->price2,
-            'canal' => $local?->price3,
+            'canal' => $local?->canalPrecio($nivel),
             'oem' => $local?->price4,
             'usuario_final' => $local?->price5,
             'precio_lista' => $local?->list_price,

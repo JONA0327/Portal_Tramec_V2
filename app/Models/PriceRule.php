@@ -41,6 +41,12 @@ class PriceRule extends Model
     // DELTA: cada canal = price1 × estos factores. Otras marcas: el precio del canal × (price1 ÷ precio de lista actual).
     public const FACTORES_DELTA = ['canal_tmc' => 0.7275, 'canal' => 0.745, 'oem' => 0.812, 'usuario_final' => 0.854];
 
+    // DELTA, columna "canal": CIPSA (nivel 6) y canal entrante (nivel 9) tienen su propio factor fijo
+    // sobre list_price, SIEMPRE (no depende de ninguna PriceRule activa ni usa price1 — eso es solo
+    // para la regla opcional "Precio temporal"). Ver Product::canalPrecio(). Restaurado de v1 a pedido
+    // del cliente (antes estaba en "no se portaron", ver App\Models\User::columnasPrecio()).
+    public const FACTORES_DELTA_NIVEL = [6 => 0.6593, 9 => 0.645];
+
     private const CAMPO_PRECIO = ['canal_tmc' => 'price2', 'canal' => 'price3', 'oem' => 'price4', 'usuario_final' => 'price5'];
 
     protected $fillable = ['nombre', 'tipo', 'porcentaje', 'buscar', 'campo', 'incluidos', 'marcas', 'columnas', 'niveles', 'usuarios', 'usuarios_excluidos', 'activo'];

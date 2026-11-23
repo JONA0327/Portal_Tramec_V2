@@ -51,4 +51,21 @@ class Product extends Model
     {
         return ! empty($this->idERP) && ! empty($this->idERP_empresa);
     }
+
+    /**
+     * Precio base de la columna "canal" (price3) para quien lo ve con este nivel. CIPSA (6) y canal
+     * entrante (9) tienen su propio factor fijo sobre list_price para DELTA (ver
+     * PriceRule::FACTORES_DELTA_NIVEL); todos los demás niveles y marcas ven el price3 normal, como
+     * siempre. Esto es la base: PriceAdjuster todavía puede aplicarle descuentos/aumentos encima.
+     */
+    public function canalPrecio(?int $nivel): ?float
+    {
+        $factor = $nivel !== null ? (PriceRule::FACTORES_DELTA_NIVEL[$nivel] ?? null) : null;
+
+        if ($factor !== null && strcasecmp((string) $this->brand, 'DELTA') === 0 && $this->list_price !== null) {
+            return round((float) $this->list_price * $factor, 2);
+        }
+
+        return $this->price3 !== null ? (float) $this->price3 : null;
+    }
 }

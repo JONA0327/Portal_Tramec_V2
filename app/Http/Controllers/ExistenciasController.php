@@ -145,7 +145,9 @@ class ExistenciasController extends Controller
                 'id_almacen' => $o->id_almacen, 'cantidad' => 0, 'sin_erp' => true,
             ]);
 
-        $rows = $levels->concat($soloManuales)->map(function (array $level) use ($adjuster, $productsByKey, $warehouseNamesByKey, $warehouseAliasesByKey, $localPricesByKey, $localPricesByName, $overridesByKey) {
+        $nivel = $request->user()->level !== null ? (int) $request->user()->level : null;
+
+        $rows = $levels->concat($soloManuales)->map(function (array $level) use ($adjuster, $productsByKey, $warehouseNamesByKey, $warehouseAliasesByKey, $localPricesByKey, $localPricesByName, $overridesByKey, $nivel) {
             $empresaCodigo = $level['empresa_codigo'] ?? 'TRAMEC';
             $producto = $productsByKey->get("{$empresaCodigo}:{$level['id_producto']}");
             $almacenKey = "{$empresaCodigo}:{$level['id_almacen']}";
@@ -167,7 +169,7 @@ class ExistenciasController extends Controller
             // Descuentos/aumentos (PriceRule) solo para mostrar; products no se toca.
             [$precioFinal, $precioOriginal, $precioTemporal] = $adjuster->adjustAll([
                 'canal_tmc' => $precios?->price2,
-                'canal' => $precios?->price3,
+                'canal' => $precios?->canalPrecio($nivel),
                 'oem' => $precios?->price4,
                 'usuario_final' => $precios?->price5,
                 'precio_lista' => $precios?->list_price,

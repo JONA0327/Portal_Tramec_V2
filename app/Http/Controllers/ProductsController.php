@@ -35,11 +35,11 @@ class ProductsController extends Controller
     private const PER_PAGE = 10; // predeterminado; el usuario puede elegir 10/25/50/100 (ver PorPagina)
 
     /** @return array<string, mixed> los 5 precios de un producto local, con las mismas claves que PriceRule::COLUMNAS. */
-    private function preciosDe(?Product $p): array
+    private function preciosDe(?Product $p, ?int $nivel): array
     {
         return [
             'canal_tmc' => $p?->price2,
-            'canal' => $p?->price3,
+            'canal' => $p?->canalPrecio($nivel),
             'oem' => $p?->price4,
             'usuario_final' => $p?->price5,
             'precio_lista' => $p?->list_price,
@@ -68,10 +68,12 @@ class ProductsController extends Controller
             ->get()
             ->keyBy(fn (Product $p) => "{$p->idERP_empresa}:{$p->idERP}");
 
-        $rows = $catalog->map(function (array $item) use ($localByKey, $adjuster) {
+        $nivel = $request->user()->level !== null ? (int) $request->user()->level : null;
+
+        $rows = $catalog->map(function (array $item) use ($localByKey, $adjuster, $nivel) {
             $empresaCodigo = $item['empresa_codigo'] ?? 'TRAMEC';
             $local = $localByKey->get("{$empresaCodigo}:{$item['id']}");
-            [$precios, $originales, $temporales] = $adjuster->adjustAll($this->preciosDe($local), $item['codigo'] ?? '-', $local?->description_short ?: ($item['nombre'] ?? '-'), $local);
+            [$precios, $originales, $temporales] = $adjuster->adjustAll($this->preciosDe($local, $nivel), $item['codigo'] ?? '-', $local?->description_short ?: ($item['nombre'] ?? '-'), $local);
 
             return [
                 'erp_id' => $item['id'] ?? null,
@@ -97,8 +99,8 @@ class ProductsController extends Controller
             })
             ->get()
             ->reject(fn (Product $p) => ProductoBaja::esBaja(null, $p->name))
-            ->map(function (Product $p) use ($adjuster) {
-                [$precios, $originales, $temporales] = $adjuster->adjustAll($this->preciosDe($p), (string) $p->name, (string) ($p->description_short ?: $p->name2), $p);
+            ->map(function (Product $p) use ($adjuster, $nivel) {
+                [$precios, $originales, $temporales] = $adjuster->adjustAll($this->preciosDe($p, $nivel), (string) $p->name, (string) ($p->description_short ?: $p->name2), $p);
 
                 return [
                 'erp_id' => null,

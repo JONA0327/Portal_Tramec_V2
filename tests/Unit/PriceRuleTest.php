@@ -109,14 +109,6 @@ class PriceRuleTest extends TestCase
         $otra = (new Product)->forceFill(['brand' => 'MARATHON', 'price1' => 1000, 'list_price' => 800, 'price2' => 600]);
         $this->assertEqualsWithDelta(750.0, PriceRule::precioTemporal($otra, 'canal_tmc'), 0.001);
 
-        // CIPSA (nivel 6) y canal entrante (nivel 9) tienen su propio factor en "canal" para DELTA.
-        $this->assertEqualsWithDelta(659.3, PriceRule::precioTemporal($delta, 'canal', 6), 0.001);
-        $this->assertEqualsWithDelta(645.0, PriceRule::precioTemporal($delta, 'canal', 9), 0.001);
-        // Otros niveles (o sin nivel) siguen con el factor genérico de "canal"; otras columnas no cambian para esos niveles.
-        $this->assertEqualsWithDelta(745.0, PriceRule::precioTemporal($delta, 'canal', 3), 0.001);
-        $this->assertEqualsWithDelta(745.0, PriceRule::precioTemporal($delta, 'canal'), 0.001);
-        $this->assertEqualsWithDelta(812.0, PriceRule::precioTemporal($delta, 'oem', 9), 0.001);
-
         // Sin Precio 1 (o sin lista) no hay precio temporal.
         $this->assertNull(PriceRule::precioTemporal((new Product)->forceFill(['brand' => 'DELTA', 'list_price' => 800]), 'canal'));
         $this->assertNull(PriceRule::precioTemporal(null, 'canal'));

@@ -29,8 +29,7 @@ class PriceAdjuster
             if ($rule->appliesTo($column, $codigo, $nombre, $producto?->brand)) {
                 // Precio temporal: sustituye el precio por el calculado con el Precio 1 (sin Precio 1, queda el de siempre).
                 if ($rule->tipo === 'temporal') {
-                    $nivel = Auth::user()?->level;
-                    $price = PriceRule::precioTemporal($producto, $column, $nivel !== null ? (int) $nivel : null) ?? $price;
+                    $price = PriceRule::precioTemporal($producto, $column) ?? $price;
 
                     continue;
                 }
@@ -64,8 +63,7 @@ class PriceAdjuster
             }
 
             foreach ($this->temporalesVerdes() as $rule) {
-                $nivel = Auth::user()?->level;
-                $t = $rule->appliesTo($column, $codigo, $nombre, $producto?->brand) ? PriceRule::precioTemporal($producto, $column, $nivel !== null ? (int) $nivel : null) : null;
+                $t = $rule->appliesTo($column, $codigo, $nombre, $producto?->brand) ? PriceRule::precioTemporal($producto, $column) : null;
 
                 if ($t !== null) {
                     $temporales[$column] = $t;

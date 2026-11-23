@@ -11,7 +11,8 @@ return new class extends Migration
     {
         Schema::create('api_tokens', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('user_id')->constrained()->cascadeOnDelete();
+            // Sin llave foránea: users.id viene de v1 y su tipo puede no coincidir con el de Laravel.
+            $table->unsignedBigInteger('user_id')->index();
             $table->string('nombre', 60);
             $table->string('token', 64)->unique();
             $table->timestamp('last_used_at')->nullable();

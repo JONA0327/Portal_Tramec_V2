@@ -40,12 +40,16 @@ use Illuminate\Support\Str;
  *  - Si nunca tuvo vínculo (idERP null), ahí sí se intenta por nombre
  *    normalizado (trim + mayúsculas) contra "unificado" (necesita su id_erp
  *    deduplicado para poder asignarlo).
- *  - Los almacenes de "unificado" que ningún local reclama se registran solos
- *    (ver abajo): se crean ya vinculados a su id_erp, sin que nadie tenga que
- *    apretar nada (mismo pedido del cliente que el auto-rename de arriba). Si
- *    por lo que sea el alta falla (save() lanza), ese almacén queda en
- *    "nuevos" para registrarlo a mano con el botón (WarehousesController::register()),
- *    en vez de perderlo silenciosamente.
+ *  - Los almacenes que ningún local reclama se registran solos (ver abajo),
+ *    primero los de "unificado" (ya con su id_erp deduplicado) y después los
+ *    que SOLO están en el catálogo crudo (ej. OMEC QRO/GDL, que unificado
+ *    todavía no cubre): a estos se les asigna el siguiente id_erp libre,
+ *    porque el crudo no trae uno deduplicado. El id=0 ("(Ninguno)" en ambas
+ *    empresas) nunca se auto-registra desde crudo: es un valor-sentinela de
+ *    CONTPAQi, no un almacén real (si hace falta, como TRAMEC id=0 = "DELTA
+ *    Schenker", se cura a mano en unificado). Si el alta falla (save()
+ *    lanza), ese almacén queda en "nuevos" para registrarlo a mano con el
+ *    botón (WarehousesController::register()), en vez de perderlo en silencio.
  */
 class WarehouseErpMatcher
 {
@@ -121,21 +125,48 @@ class WarehouseErpMatcher
             $stats['unmatched']++;
         });
 
-        $porRegistrar = collect($unificado)
-            ->reject(fn (array $item) => isset($claimed["{$item['origen']}:{$item['id']}"]))
-            ->values();
-
         $autoRegistrados = [];
         $nuevos = [];
 
-        foreach ($porRegistrar as $item) {
+        // 1) Nuevos de "unificado": ya traen su id_erp deduplicado a mano.
+        foreach (collect($unificado)->reject(fn (array $item) => isset($claimed["{$item['origen']}:{$item['id']}"])) as $item) {
             try {
-                $this->registrar($item);
+                $this->registrar($item['origen'], (int) $item['id'], (int) $item['id_erp'], $item['nombre']);
+                $claimed["{$item['origen']}:{$item['id']}"] = true;
                 $autoRegistrados[] = $item;
             } catch (\Throwable $e) {
                 // No se pudo crear solo (ej. nombre duplicado que choca con una
                 // constraint): se deja en "nuevos" para registrarlo a mano en
                 // vez de perder el intento en silencio.
+                $nuevos[] = $item;
+            }
+        }
+
+        // 2) Nuevos que SOLO están en el catálogo crudo (unificado no los cubre
+        // todavía, ver comentario de la clase): no traen id_erp deduplicado, se
+        // les asigna el siguiente libre.
+        $siguienteIdErp = (int) Warehouse::query()->whereNotNull('idERP')->max('idERP') + 1;
+
+        foreach ($crudoByKey as $rawKey => $nombre) {
+            if (isset($claimed[$rawKey])) {
+                continue;
+            }
+
+            [$empresa, $rawId] = explode(':', $rawKey, 2);
+            $rawId = (int) $rawId;
+
+            if ($rawId === 0) {
+                continue; // "(Ninguno)": valor-sentinela de CONTPAQi, no un almacén real.
+            }
+
+            $item = ['origen' => $empresa, 'id' => $rawId, 'id_erp' => $siguienteIdErp, 'nombre' => $nombre];
+
+            try {
+                $this->registrar($empresa, $rawId, $siguienteIdErp, $nombre);
+                $claimed[$rawKey] = true;
+                $autoRegistrados[] = $item;
+                $siguienteIdErp++;
+            } catch (\Throwable $e) {
                 $nuevos[] = $item;
             }
         }
@@ -146,20 +177,15 @@ class WarehouseErpMatcher
         return $stats;
     }
 
-    /**
-     * Crea el almacén local ya vinculado al id_erp, igual que
-     * WarehousesController::register() para el alta manual de un clic.
-     *
-     * @param array{id:int,id_erp:int,nombre:string,origen:string,nombre_bd:string} $item
-     */
-    private function registrar(array $item): void
+    /** Crea el almacén local ya vinculado al id_erp, igual que WarehousesController::register() para el alta manual de un clic. */
+    private function registrar(string $empresa, int $almacenErpId, int $idErp, string $nombre): void
     {
         $warehouse = new Warehouse();
         $warehouse->forceFill([
-            'name' => $item['nombre'],
-            'idERP' => $item['id_erp'],
-            'idERP_empresa' => strtolower($item['origen']),
-            'almacen_erp_id' => $item['id'],
+            'name' => trim($nombre),
+            'idERP' => $idErp,
+            'idERP_empresa' => strtolower($empresa),
+            'almacen_erp_id' => $almacenErpId,
         ]);
         $warehouse->save();
     }

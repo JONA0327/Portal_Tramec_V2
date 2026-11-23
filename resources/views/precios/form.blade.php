@@ -328,7 +328,7 @@
             // "Mostrar en $0.00" no usa porcentaje
             var tipo = document.getElementById('tipo'), bloquePct = document.getElementById('bloque-porcentaje'), pct = document.getElementById('porcentaje');
             function alternarPorcentaje() {
-                var cero = tipo.value === 'cero' || tipo.value === 'temporal' || tipo.value === 'lista_canales'; // sin porcentaje
+                var cero = tipo.value === 'cero' || tipo.value === 'temporal' || tipo.value === 'fija_lista'; // sin porcentaje
                 bloquePct.hidden = cero;
                 pct.required = !cero;
                 pct.disabled = cero; // oculto y con 0 (min 0.01) daba "invalid form control is not focusable" y no dejaba guardar

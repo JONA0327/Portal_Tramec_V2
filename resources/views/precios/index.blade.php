@@ -48,7 +48,7 @@
                                                         <span class="badge bg-dark text-white">$0.00</span>
                                                     @elseif($rule->tipo === 'temporal')
                                                         <span class="badge bg-success text-white" title="Usa el Precio 1 de cada producto">Temporal</span>
-                                                    @elseif($rule->tipo === 'lista_canales')
+                                                    @elseif($rule->tipo === 'fija_lista')
                                                         <span class="badge bg-info text-white" title="Mismo precio de lista en los canales elegidos, sin multiplicar">Lista en canales</span>
                                                     @else
                                                         <span class="badge {{ $rule->tipo === 'descuento' ? 'bg-success' : 'bg-warning text-dark' }}">

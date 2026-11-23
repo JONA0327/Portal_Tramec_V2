@@ -34,6 +34,14 @@ class PriceAdjuster
                     continue;
                 }
 
+                // Precio de lista en los canales: mismo precio de lista en los canales elegidos, sin multiplicar
+                // por ningún factor (sin list_price, queda el de siempre).
+                if ($rule->tipo === 'lista_canales') {
+                    $price = $producto?->list_price !== null ? round((float) $producto->list_price, 2) : $price;
+
+                    continue;
+                }
+
                 $price = $rule->apply($price);
             }
         }

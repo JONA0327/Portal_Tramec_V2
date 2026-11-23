@@ -35,6 +35,7 @@ class PriceRule extends Model
         'aumento' => 'Aumento (precio ÷ (1 − %))',
         'cero' => 'Ocultar precio (se muestra $0.00)',
         'temporal' => 'Precio temporal (usa el Precio 1 del producto)',
+        'lista_canales' => 'Precio de lista en los canales (mismo precio, sin multiplicar)',
     ];
 
     // Precio temporal, igual que en el portal anterior (v1): el "Precio 1" (price1) del producto es el nuevo precio de lista.

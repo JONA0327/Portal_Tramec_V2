@@ -54,8 +54,9 @@ class User extends Authenticatable
      * Columnas de precio de Existencias que ve este nivel, como en v1: los niveles de venta ven
      * solo "Su Costo" (la columna de su canal); los internos ven varios canales. Todos los
      * niveles con acceso ven el Precio de Lista, (los niveles sin acceso no ven ninguna).
-     * ponytail: v1 además aplicaba factores por modelo (×0.645 / ×0.6593 en CIPSA y canal
-     * entrante) y una columna "Su Costo" duplicada en el nivel 9; no se portaron.
+     * ponytail: v1 además aplicaba factores por modelo en CIPSA y canal entrante para DELTA
+     * (×0.6593 / ×0.645, columna "canal") — sí portado, ver App\Models\PriceRule::FACTORES_DELTA_NIVEL.
+     * La columna "Su Costo" duplicada del nivel 9 no se portó.
      */
     public function columnasPrecio(): array
     {

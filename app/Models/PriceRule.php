@@ -41,6 +41,11 @@ class PriceRule extends Model
     // DELTA: cada canal = price1 × estos factores. Otras marcas: el precio del canal × (price1 ÷ precio de lista actual).
     public const FACTORES_DELTA = ['canal_tmc' => 0.7275, 'canal' => 0.745, 'oem' => 0.812, 'usuario_final' => 0.854];
 
+    // DELTA, columna "canal": CIPSA (nivel 6) y canal entrante (nivel 9) comparten esa columna con
+    // CANAL REVENTA (nivel 3, ver App\Models\User::columnasPrecio()) pero en v1 tenían su propio
+    // factor por modelo. Restaurado a pedido del cliente (antes estaba en "no se portaron").
+    public const FACTORES_DELTA_NIVEL = [6 => 0.6593, 9 => 0.645];
+
     private const CAMPO_PRECIO = ['canal_tmc' => 'price2', 'canal' => 'price3', 'oem' => 'price4', 'usuario_final' => 'price5'];
 
     protected $fillable = ['nombre', 'tipo', 'porcentaje', 'buscar', 'campo', 'incluidos', 'marcas', 'columnas', 'niveles', 'usuarios', 'usuarios_excluidos', 'activo'];
@@ -105,8 +110,12 @@ class PriceRule extends Model
         return false;
     }
 
-    /** Precio temporal de una columna para un producto local; null si no tiene Precio 1 (o no se puede calcular). */
-    public static function precioTemporal(?Product $p, string $columna): ?float
+    /**
+     * Precio temporal de una columna para un producto local; null si no tiene Precio 1 (o no se puede
+     * calcular). $nivel es el users.level de quien lo ve: solo importa para DELTA en la columna
+     * "canal" (ver FACTORES_DELTA_NIVEL); para el resto de columnas/marcas no cambia nada.
+     */
+    public static function precioTemporal(?Product $p, string $columna, ?int $nivel = null): ?float
     {
         $nuevo = (float) ($p?->price1 ?? 0);
         $lista = (float) ($p?->list_price ?? 0);
@@ -120,7 +129,9 @@ class PriceRule extends Model
         }
 
         if (strcasecmp((string) $p->brand, 'DELTA') === 0) {
-            return round($nuevo * (self::FACTORES_DELTA[$columna] ?? 0), 2) ?: null;
+            $factor = ($columna === 'canal' ? self::FACTORES_DELTA_NIVEL[$nivel] ?? null : null) ?? self::FACTORES_DELTA[$columna] ?? 0;
+
+            return round($nuevo * $factor, 2) ?: null;
         }
 
         $actual = (float) ($p->{self::CAMPO_PRECIO[$columna] ?? 'price2'} ?? 0);

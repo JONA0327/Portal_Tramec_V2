@@ -51,7 +51,12 @@ class RegisteredUserController extends Controller
         ]);
 
         // Aviso interno a Tramec de que hay un registro nuevo (mismo destinatario que v1).
-        Mail::to('info@tramec.mx')->send(new UserInfo($user));
+        // Si el SMTP falla, el registro no se pierde (queda en el log para avisar a mano).
+        try {
+            Mail::to('info@tramec.mx')->send(new UserInfo($user));
+        } catch (\Throwable $e) {
+            report($e);
+        }
 
         event(new Registered($user));
 

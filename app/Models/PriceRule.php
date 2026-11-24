@@ -66,6 +66,12 @@ class PriceRule extends Model
         ];
     }
 
+    /** Qué tan específica es la regla: 2 = para usuarios concretos, 1 = para ciertos niveles, 0 = para todos. */
+    public function especificidad(): int
+    {
+        return ! empty($this->usuarios) ? 2 : (! empty($this->niveles) ? 1 : 0);
+    }
+
     public function visibleToLevel(int|string|null $level): bool
     {
         return empty($this->niveles) || ($level !== null && in_array((int) $level, array_map('intval', $this->niveles), true));

@@ -57,6 +57,64 @@
                     </div>
                 </div>
             </div>
+            @if($user->exists)
+            <div class="col-12 col-lg-6 mt-3 mt-lg-0">
+                <div class="card">
+                    <div class="card-header">Acceso por API</div>
+                    <div class="card-body">
+                        @if(session('status'))<div class="alert alert-success">{{ session('status') }}</div>@endif
+                        @if(session('api_token'))
+                            <div class="alert alert-warning">
+                                <strong>Copia el token ahora: no se vuelve a mostrar.</strong>
+                                <input type="text" class="form-control mt-2" value="{{ session('api_token') }}" readonly onclick="this.select()">
+                            </div>
+                        @endif
+                        <div class="small text-muted mb-3">
+                            <strong>Cómo usarlo</strong>
+                            <ol class="pl-3 mb-2">
+                                <li>Escribe para qué es y pulsa <em>Generar token</em>. Se muestra una sola vez: cópialo y pásalo a quien lo va a usar.</li>
+                                <li>El tercero lo manda en cada petición en el encabezado <code>Authorization: Bearer &lt;token&gt;</code>.</li>
+                                <li>Verá los productos y precios de <strong>esta cuenta</strong>: su nivel y sus reglas de precio. Si desactivas la cuenta o revocas el token, pierde el acceso.</li>
+                            </ol>
+                            <strong>Rutas</strong> (GET, base <code>{{ url('/api') }}</code>):
+                            <ul class="pl-3 mb-2">
+                                <li><code>/products</code>: todos los productos con su precio de lista</li>
+                                <li><code>/product_by_id/{id}</code>, <code>/product_by_name/{nombre}</code>, <code>/products_by_brand/{marca}</code>, <code>/product_list_price/{id}</code></li>
+                                <li><code>/stocks</code>, <code>/stocks_by_warehouse/{id}</code>, <code>/stocks_by_id/{id}</code>: existencias</li>
+                                <li>Cuentas del equipo Tramec: las mismas de productos con <code>_tmc</code> al final (<code>/products_tmc</code>…), con los 5 precios</li>
+                            </ul>
+                            <strong>Ejemplo:</strong> <code>curl -H "Authorization: Bearer TU_TOKEN" {{ url('/api/products') }}</code><br>
+                            Responde JSON: <code>{"success": true, "data": [...], "message": "..."}</code>
+                        </div>
+                        <form method="POST" action="{{ route('users.api-tokens.store', $user) }}" class="d-flex" style="gap: 8px;">
+                            @csrf
+                            <input type="text" name="nombre" class="form-control" maxlength="60" placeholder="Para qué es (ej. ERP del cliente)" required aria-label="Nombre del token">
+                            <button type="submit" class="btn btn-primary text-nowrap">Generar token</button>
+                        </form>
+                        @if($tokens->isNotEmpty())
+                            <table class="table table-sm mt-3 mb-0">
+                                <thead><tr><th>Nombre</th><th>Creado</th><th>Último uso</th><th></th></tr></thead>
+                                <tbody>
+                                    @foreach($tokens as $t)
+                                        <tr>
+                                            <td>{{ $t->nombre }}</td>
+                                            <td class="text-nowrap">{{ \Illuminate\Support\Carbon::parse($t->created_at)->format('d/m/Y') }}</td>
+                                            <td class="text-nowrap">{{ $t->last_used_at ? \Illuminate\Support\Carbon::parse($t->last_used_at)->format('d/m/Y H:i') : 'Nunca' }}</td>
+                                            <td class="text-end">
+                                                <form method="POST" action="{{ route('users.api-tokens.destroy', [$user, $t->id]) }}" onsubmit="return confirm('¿Revocar este token? Quien lo use dejará de tener acceso.')">
+                                                    @csrf @method('DELETE')
+                                                    <button type="submit" class="btn btn-sm btn-limpiar">Revocar</button>
+                                                </form>
+                                            </td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        @endif
+                    </div>
+                </div>
+            </div>
+            @endif
         </div>
     </div>
 

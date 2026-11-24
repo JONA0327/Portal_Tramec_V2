@@ -7,6 +7,8 @@ use App\Models\User;
 use App\Support\PorPagina;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
 use Illuminate\View\View;
@@ -70,7 +72,26 @@ class UsersController extends Controller
 
     public function edit(User $user): View
     {
-        return view('usuarios.form', ['user' => $user]);
+        $tokens = $user->exists ? DB::table('api_tokens')->where('user_id', $user->id)->orderByDesc('id')->get() : collect();
+
+        return view('usuarios.form', ['user' => $user, 'tokens' => $tokens]);
+    }
+
+    /** Token de API para que un tercero use la cuenta de este usuario (ver routes/api.php). Se muestra una sola vez. */
+    public function crearToken(Request $request, User $user): RedirectResponse
+    {
+        $nombre = $request->validate(['nombre' => ['required', 'string', 'max:60']])['nombre'];
+        $token = Str::random(60);
+        DB::table('api_tokens')->insert(['user_id' => $user->id, 'nombre' => $nombre, 'token' => hash('sha256', $token), 'created_at' => now(), 'updated_at' => now()]);
+
+        return redirect()->route('users.edit', $user)->with('api_token', $token);
+    }
+
+    public function revocarToken(User $user, int $token): RedirectResponse
+    {
+        DB::table('api_tokens')->where('user_id', $user->id)->where('id', $token)->delete();
+
+        return redirect()->route('users.edit', $user)->with('status', 'Token revocado.');
     }
 
     public function update(Request $request, User $user): RedirectResponse

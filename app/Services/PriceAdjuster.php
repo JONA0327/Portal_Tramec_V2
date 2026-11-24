@@ -25,25 +25,28 @@ class PriceAdjuster
             return null;
         }
 
-        foreach ($this->rules() as $rule) {
-            if ($rule->appliesTo($column, $codigo, $nombre, $producto?->brand)) {
-                // Precio temporal: sustituye el precio por el calculado con el Precio 1 (sin Precio 1, queda el de siempre).
-                if ($rule->tipo === 'temporal') {
-                    $price = PriceRule::precioTemporal($producto, $column) ?? $price;
+        // Las reglas que coinciden se apilan, pero solo las más específicas: una regla para usuarios concretos anula a las
+        // de un nivel y estas a las generales ("aplica a todos"). Entre reglas del mismo grado se apilan como siempre.
+        $coinciden = $this->rules()->filter(fn (PriceRule $r) => $r->appliesTo($column, $codigo, $nombre, $producto?->brand));
+        $grado = $coinciden->max(fn (PriceRule $r) => $r->especificidad());
 
-                    continue;
-                }
+        foreach ($coinciden->filter(fn (PriceRule $r) => $r->especificidad() === $grado) as $rule) {
+            // Precio temporal: sustituye el precio por el calculado con el Precio 1 (sin Precio 1, queda el de siempre).
+            if ($rule->tipo === 'temporal') {
+                $price = PriceRule::precioTemporal($producto, $column) ?? $price;
 
-                // Precio de lista en los canales: mismo precio de lista en los canales elegidos, sin multiplicar
-                // por ningún factor (sin list_price, queda el de siempre).
-                if ($rule->tipo === 'fija_lista') {
-                    $price = $producto?->list_price !== null ? round((float) $producto->list_price, 2) : $price;
-
-                    continue;
-                }
-
-                $price = $rule->apply($price);
+                continue;
             }
+
+            // Precio de lista en los canales: mismo precio de lista en los canales elegidos, sin multiplicar
+            // por ningún factor (sin list_price, queda el de siempre).
+            if ($rule->tipo === 'fija_lista') {
+                $price = $producto?->list_price !== null ? round((float) $producto->list_price, 2) : $price;
+
+                continue;
+            }
+
+            $price = $rule->apply($price);
         }
 
         return round($price, 2);

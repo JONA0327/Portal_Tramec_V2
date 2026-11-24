@@ -56,8 +56,12 @@ class User extends Authenticatable
      * niveles con acceso ven el Precio de Lista, (los niveles sin acceso no ven ninguna).
      * ponytail: v1 además aplicaba, para DELTA, un factor fijo sobre list_price en la columna
      * "canal" para CIPSA (×0.6593) y canal entrante (×0.645) — sí portado, ver
-     * App\Models\Product::canalPrecio() y PriceRule::FACTORES_DELTA_NIVEL. La columna "Su Costo"
-     * duplicada del nivel 9 no se portó.
+     * App\Models\Product::canalPrecio() y PriceRule::FACTORES_DELTA_NIVEL. Para CIPSA (nivel 6,
+     * un solo canal) ese factor especial YA ES la columna "canal"/"Su Costo". Para canal entrante
+     * (nivel 9, varios canales) el factor especial es una tarifa propia distinta del canal normal,
+     * así que se restaura como columna aparte "Su Costo" (ver ExistenciasController y
+     * ProductsController, que ponen el precio normal de canal (price3) en 'canal' y el factor
+     * especial en 'su_costo' solo para este nivel).
      */
     public function columnasPrecio(): array
     {
@@ -67,7 +71,7 @@ class User extends Authenticatable
             0, 7 => ['canal_tmc' => 'CANAL TMC', 'canal' => 'CANAL', 'oem' => 'OEM', 'usuario_final' => 'USUARIO FINAL'] + $lista,
             1 => ['canal' => 'CANAL', 'oem' => 'OEM', 'usuario_final' => 'USUARIO FINAL'] + $lista,
             8 => ['canal' => 'CANAL', 'oem' => 'OEM'] + $lista,
-            9 => ['canal' => 'CANAL', 'oem' => 'OEM', 'usuario_final' => 'USUARIO FINAL'] + $lista,
+            9 => ['su_costo' => 'Su Costo', 'canal' => 'CANAL', 'oem' => 'OEM', 'usuario_final' => 'USUARIO FINAL'] + $lista,
             2 => ['canal_tmc' => 'Su Costo'] + $lista,
             3, 6 => ['canal' => 'Su Costo'] + $lista,
             4 => ['oem' => 'Su Costo'] + $lista,

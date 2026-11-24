@@ -166,13 +166,20 @@ class ExistenciasController extends Controller
             if ($nombre === '(nuevo, cargado desde Excel)') {
                 $nombre = 'Sin descripción';
             }
+            // Canal entrante (nivel 9): "canal" es el precio de canal normal (price3, el mismo que ven
+            // los demás niveles); su tarifa especial fija sobre list_price (ver canalPrecio()) va aparte
+            // en "su_costo", solo para este nivel. CIPSA (6) sigue viendo esa tarifa especial directo en
+            // "canal" (su única columna, mostrada como "Su Costo" — ver User::columnasPrecio()).
+            $canalEspecial = $precios?->canalPrecio($nivel);
+
             // Descuentos/aumentos (PriceRule) solo para mostrar; products no se toca.
             [$precioFinal, $precioOriginal, $precioTemporal] = $adjuster->adjustAll([
                 'canal_tmc' => $precios?->price2,
-                'canal' => $precios?->canalPrecio($nivel),
+                'canal' => $nivel === 9 ? $precios?->price3 : $canalEspecial,
                 'oem' => $precios?->price4,
                 'usuario_final' => $precios?->price5,
                 'precio_lista' => $precios?->list_price,
+                ...($nivel === 9 ? ['su_costo' => $canalEspecial] : []),
             ], $codigo, $precios?->description_short ?: $nombre, $precios); // las reglas filtran por código y descripción (lo que ve el usuario)
 
             return [

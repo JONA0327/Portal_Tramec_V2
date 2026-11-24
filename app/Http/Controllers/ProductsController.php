@@ -34,15 +34,22 @@ class ProductsController extends Controller
 {
     private const PER_PAGE = 10; // predeterminado; el usuario puede elegir 10/25/50/100 (ver PorPagina)
 
-    /** @return array<string, mixed> los 5 precios de un producto local, con las mismas claves que PriceRule::COLUMNAS. */
+    /** @return array<string, mixed> los precios de un producto local, con las mismas claves que PriceRule::COLUMNAS
+     *  (más 'su_costo' para canal entrante, ver columnasPrecio()). */
     private function preciosDe(?Product $p, ?int $nivel): array
     {
+        // Canal entrante (nivel 9): "canal" es el precio de canal normal (price3), su tarifa especial
+        // fija sobre list_price (canalPrecio()) va aparte en "su_costo". CIPSA (6) sigue viendo esa
+        // tarifa especial directo en "canal" (su única columna, mostrada como "Su Costo").
+        $canalEspecial = $p?->canalPrecio($nivel);
+
         return [
             'canal_tmc' => $p?->price2,
-            'canal' => $p?->canalPrecio($nivel),
+            'canal' => $nivel === 9 ? $p?->price3 : $canalEspecial,
             'oem' => $p?->price4,
             'usuario_final' => $p?->price5,
             'precio_lista' => $p?->list_price,
+            ...($nivel === 9 ? ['su_costo' => $canalEspecial] : []),
         ];
     }
 

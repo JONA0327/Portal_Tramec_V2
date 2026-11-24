@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Cotizacion;
 use App\Models\PriceRule;
 use App\Models\User;
 use App\Support\PorPagina;
@@ -15,9 +16,11 @@ use Illuminate\View\View;
 
 /**
  * Administración de usuarios (equivalente a admin/users de v1): alta, edición,
- * activar/desactivar y asignar nivel (users.level, ver PriceRule::NIVELES).
- * Solo ADMINISTRADOR -- ver el middleware en routes/web.php. No hay borrado:
- * un usuario que ya no debe entrar se desactiva.
+ * activar/desactivar, asignar nivel (users.level, ver PriceRule::NIVELES) y
+ * eliminar. Solo ADMINISTRADOR -- ver el middleware en routes/web.php. Para un
+ * usuario que ya no debe entrar pero cuyo historial conviene conservar, mejor
+ * desactivarlo (botón "Desactivar"); eliminar es para dar de baja la cuenta
+ * del todo (ver destroy()).
  */
 class UsersController extends Controller
 {
@@ -132,6 +135,26 @@ class UsersController extends Controller
         $user->update($data);
 
         return back()->with('status', "{$user->first_name} {$user->last_name}: actualizado.");
+    }
+
+    /**
+     * Elimina la cuenta: se van también su carrito (Cotizacion, renglones en cascada) y sus
+     * tokens de API, para no dejar basura huérfana. El historial de cotizaciones (cotizacion_historial)
+     * se conserva -- su vista ya maneja que el usuario ya no exista (ver cotizador-historial.blade.php).
+     */
+    public function destroy(Request $request, User $user): RedirectResponse
+    {
+        if ($user->is($request->user())) {
+            return back()->with('error', 'No podés eliminarte a vos mismo.');
+        }
+
+        DB::table('api_tokens')->where('user_id', $user->id)->delete();
+        Cotizacion::where('user_id', $user->id)->delete();
+
+        $nombre = trim("{$user->first_name} {$user->last_name}");
+        $user->delete();
+
+        return redirect()->route('users.index')->with('status', "{$nombre}: usuario eliminado.");
     }
 
     private function rules(?User $user = null): array

@@ -70,6 +70,7 @@ Route::middleware(['auth', 'verified', 'can:admin'])->prefix('usuarios')->name('
     Route::get('/{user}/editar', [UsersController::class, 'edit'])->name('edit');
     Route::put('/{user}', [UsersController::class, 'update'])->name('update');
     Route::patch('/{user}', [UsersController::class, 'quick'])->name('quick');
+    Route::delete('/{user}', [UsersController::class, 'destroy'])->name('destroy');
     Route::post('/{user}/api-tokens', [UsersController::class, 'crearToken'])->name('api-tokens.store');
     Route::delete('/{user}/api-tokens/{token}', [UsersController::class, 'revocarToken'])->name('api-tokens.destroy');
 });

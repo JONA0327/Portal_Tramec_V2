@@ -83,6 +83,14 @@
                                                         <button type="submit" class="btn btn-sm {{ $activo ? 'btn-outline-secondary' : 'btn-success' }}">{{ $activo ? 'Desactivar' : 'Activar' }}</button>
                                                     </form>
                                                     <a href="{{ route('users.edit', $u) }}" class="btn btn-sm btn-primary">Editar</a>
+                                                    @if($u->id !== auth()->id())
+                                                        <form method="POST" action="{{ route('users.destroy', $u) }}" class="d-inline"
+                                                            onsubmit="return confirm(@js('¿Eliminar a '.trim($u->first_name.' '.$u->last_name).'? Se borra la cuenta, su carrito y sus tokens de API. No se puede deshacer.'))">
+                                                            @csrf
+                                                            @method('DELETE')
+                                                            <button type="submit" class="btn btn-sm btn-danger">Eliminar</button>
+                                                        </form>
+                                                    @endif
                                                 </td>
                                             </tr>
                                         @endforeach

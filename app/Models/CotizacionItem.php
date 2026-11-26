@@ -25,6 +25,18 @@ class CotizacionItem extends Model
         return (float) ($this->precios[$columna] ?? 0);
     }
 
+    /** Los campos de precio de este renglón convertidos a pesos (precio unitario redondeado a centavos). */
+    public function enPesos(float $tipoCambio): array
+    {
+        $convertir = fn ($v) => $v === null ? null : round((float) $v * $tipoCambio, 2);
+
+        return [
+            'moneda' => 'MXN',
+            'precios' => array_map($convertir, $this->precios ?? []),
+            'precio_manual' => $convertir($this->precio_manual),
+        ];
+    }
+
     public function importe(string $columna): float
     {
         return round($this->precioUnitario($columna) * (float) $this->cantidad, 2);

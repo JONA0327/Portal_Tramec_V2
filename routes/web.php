@@ -31,6 +31,7 @@ Route::middleware(['auth', 'verified', 'can:admin'])->prefix('precios')->name('p
     Route::get('/{priceRule}/editar', [PriceRulesController::class, 'edit'])->name('edit');
     Route::put('/{priceRule}', [PriceRulesController::class, 'update'])->name('update');
     Route::patch('/{priceRule}/activar', [PriceRulesController::class, 'toggle'])->name('toggle');
+    Route::patch('/{priceRule}/mover/{direccion}', [PriceRulesController::class, 'mover'])->whereIn('direccion', ['subir', 'bajar'])->name('mover');
     Route::delete('/{priceRule}', [PriceRulesController::class, 'destroy'])->name('destroy');
 });
 
@@ -39,6 +40,8 @@ Route::middleware(['auth', 'verified', 'can:cotizar'])->prefix('cotizador')->nam
     Route::get('/', [CotizadorController::class, 'index']);
     Route::post('/agregar', [CotizadorController::class, 'agregar'])->name('.agregar');
     Route::post('/guardar', [CotizadorController::class, 'guardar'])->name('.guardar');
+    Route::post('/convertir-mxn', [CotizadorController::class, 'convertirMxn'])->name('.convertir-mxn');
+    Route::post('/historial/{registro}/mxn', [CotizadorController::class, 'historialMxn'])->name('.historial.mxn');
     Route::post('/pdf/{moneda}', [CotizadorController::class, 'pdf'])->name('.pdf');
     Route::get('/historial', [CotizadorController::class, 'historial'])->name('.historial');
     Route::post('/historial/{registro}/editar', [CotizadorController::class, 'historialEditar'])->name('.historial.editar');
@@ -141,6 +144,8 @@ Route::middleware(['auth', 'verified', 'nivel:existencias', 'can:admin'])->prefi
     Route::get('/{empresa}/{idProducto}/{idAlmacen}/editar', [ExistenciasController::class, 'edit'])->name('edit');
     Route::post('/{empresa}/{idProducto}/{idAlmacen}/ocultar', [ExistenciasController::class, 'ocultar'])->name('ocultar');
     Route::post('/{empresa}/{idProducto}/{idAlmacen}/restaurar', [ExistenciasController::class, 'restaurar'])->name('restaurar');
+    Route::post('/{empresa}/{idProducto}/{idAlmacen}/cantidad', [ExistenciasController::class, 'cantidadTemporal'])->name('cantidad');
+    Route::post('/{empresa}/{idProducto}/{idAlmacen}/resincronizar', [ExistenciasController::class, 'resincronizar'])->name('resincronizar');
     Route::get('/{empresa}/{idProducto}/{idAlmacen}/dar-de-baja', [ExistenciasController::class, 'confirmBaja'])->name('confirm-baja');
     Route::post('/{empresa}/{idProducto}/{idAlmacen}/dar-de-baja', [ExistenciasController::class, 'darDeBaja'])->name('dar-de-baja');
 });

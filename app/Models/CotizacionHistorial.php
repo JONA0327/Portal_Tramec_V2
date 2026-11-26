@@ -44,6 +44,27 @@ class CotizacionHistorial extends Model
         ]);
     }
 
+    /** Copia en MXN de esta cotización, con su propio registro en el historial. */
+    public function enPesos(float $tipoCambio, string $folio, int $userId): self
+    {
+        $items = $this->reconstruir()->items->map(fn (CotizacionItem $i) => $i->forceFill($i->enPesos($tipoCambio)));
+        $datos = $this->datos;
+        $datos['items'] = $items->map(fn (CotizacionItem $i) => $i->attributesToArray())->all();
+        $datos['tipo_cambio'] = $tipoCambio;
+
+        $copia = $this->replicate();
+        $copia->fill([
+            'user_id' => $userId,
+            'moneda' => 'MXN',
+            'folio' => trim($folio) !== '' ? trim($folio) : $this->folio,
+            'datos' => $datos,
+        ]);
+        $copia->total = $copia->reconstruir()->gruposPorMoneda()['MXN']['total'];
+        $copia->save();
+
+        return $copia;
+    }
+
     /** Reconstruye (sin guardar) la cotización y sus renglones para volver a generar el PDF idéntico. */
     public function reconstruir(): Cotizacion
     {

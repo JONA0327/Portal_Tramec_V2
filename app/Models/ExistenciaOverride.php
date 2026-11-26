@@ -23,6 +23,7 @@ class ExistenciaOverride extends Model
         'codigo',
         'nombre',
         'cantidad_manual',
+        'cantidad_temporal',
         'cantidad_erp_al_editar',
         'oculto',
         'de_baja',
@@ -35,6 +36,7 @@ class ExistenciaOverride extends Model
     {
         return [
             'cantidad_manual' => 'decimal:2',
+            'cantidad_temporal' => 'decimal:2',
             'cantidad_erp_al_editar' => 'decimal:2',
             'oculto' => 'boolean',
             'de_baja' => 'boolean',
@@ -85,6 +87,7 @@ class ExistenciaOverride extends Model
                 // Ya había ficha del producto real: se queda esa, con la cantidad más reciente y las marcas de ambas.
                 $real->forceFill([
                     'cantidad_manual' => $o->updated_at > $real->updated_at ? $o->cantidad_manual : $real->cantidad_manual,
+                    'cantidad_temporal' => $real->cantidad_temporal ?? $o->cantidad_temporal,
                     'oculto' => $real->oculto || $o->oculto,
                     'de_baja' => $real->de_baja || $o->de_baja,
                 ])->save();
@@ -118,7 +121,7 @@ class ExistenciaOverride extends Model
 
                 $descartados++;
 
-                if ($o->oculto || $o->de_baja || $o->codigo !== null) {
+                if ($o->oculto || $o->de_baja || $o->codigo !== null || $o->cantidad_temporal !== null) {
                     $o->forceFill(['cantidad_manual' => null, 'cantidad_erp_al_editar' => null])->save();
                 } else {
                     $o->delete();

@@ -18,7 +18,7 @@
                         <p class="text-muted">
                             Las reglas solo cambian el precio que se <strong>muestra</strong> en Existencias y Productos;
                             los precios originales guardados no se modifican. Si varias reglas coinciden con un producto,
-                            se aplican una tras otra en el orden de esta lista.
+                            <strong>solo se aplica la que esté más arriba</strong>. Usa ↑ y ↓ para cambiar la prioridad.
                         </p>
 
                         @if($rules->isEmpty())
@@ -41,7 +41,17 @@
                                     <tbody>
                                         @foreach($rules as $rule)
                                             <tr class="{{ $rule->activo ? '' : 'text-muted' }}">
-                                                <td>{{ $loop->iteration }}</td>
+                                                <td class="text-nowrap">
+                                                    {{ $loop->iteration }}
+                                                    @foreach(['subir' => '↑', 'bajar' => '↓'] as $dir => $flecha)
+                                                        <form method="POST" action="{{ route('price-rules.mover', [$rule, $dir]) }}" class="d-inline">
+                                                            @csrf
+                                                            @method('PATCH')
+                                                            <button type="submit" class="btn btn-sm btn-outline-secondary px-2 py-0" title="{{ ucfirst($dir) }} prioridad" aria-label="{{ ucfirst($dir) }} la regla {{ $rule->nombre }}"
+                                                                @disabled($dir === 'subir' ? $loop->parent->first : $loop->parent->last)>{{ $flecha }}</button>
+                                                        </form>
+                                                    @endforeach
+                                                </td>
                                                 <td>{{ $rule->nombre }}</td>
                                                 <td class="text-nowrap">
                                                     @if($rule->tipo === 'cero')

@@ -84,6 +84,11 @@ class CotizadorController extends Controller
 
     public function guardar(Request $request): RedirectResponse|\Illuminate\Http\JsonResponse
     {
+        // Un guardado automático que llega después de descargar (o vaciar) no debe revivir esa cotización con su folio viejo.
+        if ($request->ajax() && ! Cotizacion::where('user_id', $request->user()->id)->whereKey($request->integer('cotizacion_id'))->exists()) {
+            return response()->json(['ok' => false]);
+        }
+
         $this->guardarCambios($request);
 
         if ($request->ajax()) {
@@ -108,6 +113,8 @@ class CotizadorController extends Controller
             $cotizacion->update(['folio_numero' => Cotizacion::siguienteFolio($cotizacion->serie)]);
         }
 
+        Cotizacion::recordarFolio($cotizacion->serie, (int) $cotizacion->folio_numero);
+
         $folio = $cotizacion->folioCompleto();
         // Con más de una moneda cada PDF es una cotización distinta: el folio lleva el sufijo de la moneda.
         $folioPdf = count($grupos) > 1 ? ($folio !== '' ? "{$folio}-{$moneda}" : $moneda) : $folio;
@@ -126,6 +133,43 @@ class CotizadorController extends Controller
         }
 
         return $this->descarga($pdf, $folioPdf, $cotizacion->cliente_empresa);
+    }
+
+    /** Carrito con puros productos en USD: pasa todos los precios a pesos con el tipo de cambio capturado. */
+    public function convertirMxn(Request $request): RedirectResponse
+    {
+        $tc = (float) $request->validate(['tipo_cambio' => ['required', 'numeric', 'gt:0', 'max:1000']])['tipo_cambio'];
+        $cotizacion = $this->guardarCambios($request);
+
+        if ($cotizacion->items->isEmpty() || $cotizacion->items->contains(fn (CotizacionItem $i) => $i->moneda !== 'USD')) {
+            return redirect()->route('cotizador')->withErrors(['moneda' => 'Solo se puede convertir cuando todos los productos del carrito están en USD.']);
+        }
+
+        \Illuminate\Support\Facades\DB::transaction(function () use ($cotizacion, $tc) {
+            foreach ($cotizacion->items as $item) {
+                $item->update($item->enPesos($tc));
+            }
+        });
+
+        return redirect()->route('cotizador')->with('status', "Carrito convertido a MXN con tipo de cambio {$tc}.");
+    }
+
+    /** Desde el historial: registra una copia en MXN de una cotización en USD y la descarga. */
+    public function historialMxn(Request $request, CotizacionHistorial $registro): RedirectResponse
+    {
+        abort_unless($request->user()->isAdmin() || $registro->user_id === $request->user()->id, 404);
+        abort_unless($registro->moneda === 'USD', 404);
+
+        $data = $request->validate([
+            'tipo_cambio' => ['required', 'numeric', 'gt:0', 'max:1000'],
+            'folio' => ['nullable', 'string', 'max:80'],
+        ]);
+
+        $copia = $registro->enPesos((float) $data['tipo_cambio'], (string) ($data['folio'] ?? ''), $request->user()->id);
+
+        return redirect()->route('cotizador.historial')
+            ->with('status', "Cotización {$copia->folio} en MXN guardada en el historial.")
+            ->with('descargar', route('cotizador.historial.pdf', $copia));
     }
 
     public function historial(Request $request): View

@@ -20,6 +20,8 @@
 
                         <form id="form-cot" data-url-folio="{{ route('cotizador.siguiente-folio') }}" method="POST" action="{{ route('cotizador.guardar') }}" data-grupos="{{ count($grupos) }}" data-si-vacio="{{ route('existencias') }}">
                             @csrf
+                            <input type="hidden" name="cotizacion_id" value="{{ $c->id }}">
+                            <input type="hidden" name="tipo_cambio" value="">
 
                             <div id="paso-carrito" {{ $errors->any() ? 'hidden' : '' }}>
                             <h6 class="mb-3">Productos en el carrito</h6>
@@ -229,6 +231,9 @@
                             @if($c->items->isNotEmpty())
                             <div class="d-flex flex-wrap align-items-center" style="gap: 8px;">
                                 <button type="button" class="btn btn-primary" data-paso="datos" {{ $errors->any() ? 'hidden' : '' }}>Generar cotización →</button>
+                                @if(array_keys($grupos) === ['USD'])
+                                    <button type="submit" formaction="{{ route('cotizador.convertir-mxn') }}" class="btn btn-secondary" data-mxn-carrito>Convertir a MXN</button>
+                                @endif
                                 <button type="submit" form="form-vaciar" class="btn btn-limpiar">Vaciar carrito / cotización nueva</button>
                             </div>
                             @endif
@@ -265,6 +270,7 @@
         }
     </style>
 
+    <script src="{{ asset('dash-assets/js/convertir-mxn.js').'?v='.filemtime(public_path('dash-assets/js/convertir-mxn.js')) }}" defer></script>
     <script src="{{ asset('dash-assets/js/cotizador.js').'?v='.filemtime(public_path('dash-assets/js/cotizador.js')) }}" defer></script>
 
 </x-layouts.dashboard>

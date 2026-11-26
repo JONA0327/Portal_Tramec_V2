@@ -28,8 +28,8 @@ class Cotizacion extends Model
     }
 
     /**
-     * Folio sugerido para una serie: el siguiente número consecutivo de las cotizaciones GUARDADAS en el historial con esa
-     * serie (empieza en 1). El portal permite folios repetidos: el usuario puede escribir cualquier número.
+     * Folio sugerido para una serie: el siguiente al mayor entre los guardados en el historial y los ya descargados
+     * (cotizacion_folios), empezando en 1. El portal permite folios repetidos: el usuario puede escribir cualquier número.
      */
     public static function siguienteFolio(?string $serie): int
     {
@@ -39,7 +39,17 @@ class Cotizacion extends Model
             ->where(fn ($q) => $serie === '' ? $q->whereNull('serie')->orWhere('serie', '') : $q->where('serie', $serie))
             ->max('folio_numero');
 
-        return ((int) $max) + 1;
+        $descargado = DB::table('cotizacion_folios')->where('serie', $serie)->value('ultimo');
+
+        return max((int) $max, (int) $descargado) + 1;
+    }
+
+    /** Recuerda el folio de un PDF descargado (nunca baja). */
+    public static function recordarFolio(?string $serie, int $numero): void
+    {
+        $serie = trim((string) $serie);
+        $ultimo = (int) DB::table('cotizacion_folios')->where('serie', $serie)->value('ultimo');
+        DB::table('cotizacion_folios')->updateOrInsert(['serie' => $serie], ['ultimo' => max($ultimo, $numero)]);
     }
 
     /** Serie + número de 4 dígitos (JL0001); vacío si no hay número. */

@@ -50,7 +50,7 @@ class PriceRule extends Model
 
     private const CAMPO_PRECIO = ['canal_tmc' => 'price2', 'canal' => 'price3', 'oem' => 'price4', 'usuario_final' => 'price5'];
 
-    protected $fillable = ['nombre', 'tipo', 'porcentaje', 'buscar', 'campo', 'incluidos', 'marcas', 'columnas', 'niveles', 'usuarios', 'usuarios_excluidos', 'activo'];
+    protected $fillable = ['nombre', 'tipo', 'porcentaje', 'buscar', 'campo', 'incluidos', 'marcas', 'columnas', 'niveles', 'usuarios', 'usuarios_excluidos', 'activo', 'orden'];
 
     protected function casts(): array
     {

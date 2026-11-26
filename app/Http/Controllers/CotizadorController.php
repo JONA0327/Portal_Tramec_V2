@@ -299,12 +299,12 @@ class CotizadorController extends Controller
         return $dompdf->output();
     }
 
-    /** Nombre del archivo: "Cotizacion AM1213 Empresa del cliente.pdf" (sin acentos ni signos que Windows o el encabezado rechacen). */
+    /** Nombre del archivo: "Cotizacion AM1213 RIKPAK.pdf": empresa del cliente en mayúsculas, sin acentos ni signos que Windows o el encabezado rechacen. */
     private function descarga(string $pdf, string $folio, ?string $empresa = null): Response
     {
         $archivo = 'Cotizacion '.preg_replace('/[^A-Za-z0-9._-]+/', '_', $folio !== '' ? $folio : 'sin-folio');
         $empresa = \Illuminate\Support\Str::limit(trim(preg_replace('/[^A-Za-z0-9&_-]+/', ' ', \Illuminate\Support\Str::ascii((string) $empresa))), 80, '');
-        $archivo = rtrim("{$archivo} {$empresa}").'.pdf';
+        $archivo = rtrim($archivo.' '.mb_strtoupper($empresa)).'.pdf';
 
         return response($pdf, 200, [
             'Content-Type' => 'application/pdf',

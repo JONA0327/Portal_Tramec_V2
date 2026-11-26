@@ -125,7 +125,7 @@ class CotizadorController extends Controller
             $cotizacion->delete();
         }
 
-        return $this->descarga($pdf, $folioPdf);
+        return $this->descarga($pdf, $folioPdf, $cotizacion->cliente_empresa);
     }
 
     public function historial(Request $request): View
@@ -224,7 +224,7 @@ class CotizadorController extends Controller
 
         $c = $registro->reconstruir();
 
-        return $this->descarga($this->renderPdf($c, $registro->moneda, $c->gruposPorMoneda()[$registro->moneda], (string) $registro->folio), (string) $registro->folio);
+        return $this->descarga($this->renderPdf($c, $registro->moneda, $c->gruposPorMoneda()[$registro->moneda], (string) $registro->folio), (string) $registro->folio, $registro->cliente_empresa);
     }
 
     public function historialEliminar(Request $request, CotizacionHistorial $registro): RedirectResponse
@@ -255,9 +255,12 @@ class CotizadorController extends Controller
         return $dompdf->output();
     }
 
-    private function descarga(string $pdf, string $folio): Response
+    /** Nombre del archivo: "Cotizacion AM1213 Empresa del cliente.pdf" (sin acentos ni signos que Windows o el encabezado rechacen). */
+    private function descarga(string $pdf, string $folio, ?string $empresa = null): Response
     {
-        $archivo = 'Cotizacion '.preg_replace('/[^A-Za-z0-9._-]+/', '_', $folio !== '' ? $folio : 'sin-folio').'.pdf';
+        $archivo = 'Cotizacion '.preg_replace('/[^A-Za-z0-9._-]+/', '_', $folio !== '' ? $folio : 'sin-folio');
+        $empresa = \Illuminate\Support\Str::limit(trim(preg_replace('/[^A-Za-z0-9&_-]+/', ' ', \Illuminate\Support\Str::ascii((string) $empresa))), 80, '');
+        $archivo = rtrim("{$archivo} {$empresa}").'.pdf';
 
         return response($pdf, 200, [
             'Content-Type' => 'application/pdf',

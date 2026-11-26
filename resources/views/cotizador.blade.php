@@ -40,11 +40,11 @@
                                         <div class="row">
                                             <div class="col-12 col-sm-4 mb-2"><input type="text" name="libre_codigo" form="form-libre" class="form-control" maxlength="100" placeholder="Código" required></div>
                                             <div class="col-12 col-sm-8 mb-2"><input type="text" name="libre_descripcion" form="form-libre" class="form-control" maxlength="500" placeholder="Descripción (texto libre)"></div>
-                                            <div class="col-6 col-sm-2 mb-2"><input type="number" name="libre_cantidad" form="form-libre" class="form-control" min="0.01" step="any" value="1" placeholder="Cantidad" aria-label="Cantidad"></div>
+                                            <div class="col-6 col-sm-2 mb-2"><input type="text" inputmode="decimal" name="libre_cantidad" form="form-libre" class="form-control" value="1" placeholder="Cantidad" aria-label="Cantidad"></div>
                                             <div class="col-6 col-sm-2 mb-2">
                                                 <select name="libre_moneda" form="form-libre" class="form-control" aria-label="Moneda"><option value="MXN">MXN</option><option value="USD">USD</option></select>
                                             </div>
-                                            <div class="col-6 col-sm-2 mb-2"><input type="number" name="libre_precio" form="form-libre" class="form-control" min="0" step="0.01" placeholder="Precio unitario"></div>
+                                            <div class="col-6 col-sm-2 mb-2"><input type="text" inputmode="decimal" name="libre_precio" form="form-libre" class="form-control" placeholder="Precio unitario"></div>
                                             <div class="col-6 col-sm-3 mb-2"><input type="text" name="libre_tiempo_entrega" form="form-libre" class="form-control" maxlength="100" placeholder="Tiempo de entrega"></div>
                                             <div class="col-12 col-sm-3 mb-2"><button type="submit" form="form-libre" class="btn btn-primary btn-block">Añadir al carrito</button></div>
                                         </div>
@@ -87,7 +87,7 @@
                                                     <tr class="cot-fila" data-moneda="{{ $moneda }}" data-precios='@json($it->precios ?? [])' data-manual="{{ $it->precio_manual !== null ? 1 : 0 }}">
                                                         <td class="text-nowrap" data-label="Código"><strong>{{ $it->codigo }}</strong></td>
                                                         <td data-label="Descripción"><input type="text" name="items[{{ $it->id }}][descripcion]" value="{{ old("items.{$it->id}.descripcion", $it->descripcion) }}" class="form-control" maxlength="500"></td>
-                                                        <td data-label="Cantidad"><input type="number" name="items[{{ $it->id }}][cantidad]" value="{{ old("items.{$it->id}.cantidad", rtrim(rtrim(number_format($it->cantidad, 2, '.', ''), '0'), '.')) }}" class="form-control cot-cant" min="0.01" step="any" required></td>
+                                                        <td data-label="Cantidad"><input type="text" inputmode="decimal" name="items[{{ $it->id }}][cantidad]" value="{{ old("items.{$it->id}.cantidad", rtrim(rtrim(number_format($it->cantidad, 2, '.', ''), '0'), '.')) }}" class="form-control cot-cant" required></td>
                                                         <td data-label="Tiempo de entrega"><input type="text" name="items[{{ $it->id }}][tiempo_entrega]" value="{{ old("items.{$it->id}.tiempo_entrega", $it->tiempo_entrega) }}" class="form-control" maxlength="100"></td>
                                                         <td data-label="Canal">
                                                             @if(empty($it->precios))<span class="text-muted small">Renglón libre</span>@endif
@@ -98,7 +98,7 @@
                                                             </select>
                                                         </td>
                                                         <td data-label="Precio unitario">
-                                                            <input type="number" name="items[{{ $it->id }}][precio]" value="{{ old("items.{$it->id}.precio", number_format($pu, 2, '.', '')) }}" class="form-control cot-precio {{ $pu <= 0 ? 'is-invalid' : '' }}" min="0" step="0.01">
+                                                            <input type="text" inputmode="decimal" name="items[{{ $it->id }}][precio]" value="{{ old("items.{$it->id}.precio", number_format($pu, 2, '.', '')) }}" class="form-control cot-precio {{ $pu <= 0 ? 'is-invalid' : '' }}">
                                                             @if($pu <= 0)<small class="text-danger sin-precio">Sin precio</small>@endif
                                                         </td>
                                                         <td class="text-end text-nowrap cot-importe" data-label="Importe">{{ number_format($it->importe(old('precio_base', $c->precio_base)), 2) }}</td>

@@ -36,8 +36,8 @@ class CotizacionHistorial extends Model
             'emisor' => $c->emisor,
             'total' => $grupo['total'],
             'datos' => [
-                'cotizacion' => $c->only(['vigencia', 'cliente_empresa', 'cliente_atencion', 'cliente_telefono', 'condiciones_pago', 'terminos',
-                    'emisor', 'emisor_email', 'emisor_telefono', 'precio_base', 'descuento_pct', 'iva_pct']) + ['fecha' => $c->fecha?->toDateString()],
+                'cotizacion' => $c->only(['vigencia', 'cliente_empresa', 'cliente_atencion', 'cliente_telefono', 'cliente_email', 'condiciones_pago', 'terminos',
+                    'emisor', 'emisor_telefono', 'precio_base', 'descuento_pct', 'iva_pct']) + ['fecha' => $c->fecha?->toDateString()],
                 'items' => $grupo['items']->map(fn (CotizacionItem $i) => $i->only(['empresa', 'codigo', 'descripcion', 'moneda', 'precios',
                     'precio_manual', 'cantidad', 'unidad', 'tiempo_entrega', 'canal']))->values()->all(),
             ],

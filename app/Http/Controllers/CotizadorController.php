@@ -207,8 +207,8 @@ class CotizadorController extends Controller
         abort_unless($request->user()->isAdmin() || $registro->user_id === $request->user()->id, 404);
 
         $d = $registro->datos;
-        $campos = ['vigencia', 'cliente_empresa', 'cliente_atencion', 'cliente_telefono', 'condiciones_pago', 'terminos',
-            'emisor', 'emisor_email', 'emisor_telefono', 'precio_base', 'descuento_pct', 'iva_pct'];
+        $campos = ['vigencia', 'cliente_empresa', 'cliente_atencion', 'cliente_telefono', 'cliente_email', 'condiciones_pago', 'terminos',
+            'emisor', 'emisor_telefono', 'precio_base', 'descuento_pct', 'iva_pct'];
 
         \Illuminate\Support\Facades\DB::transaction(function () use ($request, $registro, $d, $campos) {
             Cotizacion::where('user_id', $request->user()->id)->delete(); // los renglones se van en cascada
@@ -343,10 +343,10 @@ class CotizadorController extends Controller
             'cliente_empresa' => ['nullable', 'string', 'max:191'],
             'cliente_atencion' => ['nullable', 'string', 'max:191'],
             'cliente_telefono' => ['nullable', 'string', 'max:60'],
+            'cliente_email' => ['nullable', 'string', 'max:191'],
             'condiciones_pago' => ['nullable', 'string', 'max:191'],
             'terminos' => ['nullable', 'string', 'max:3000'],
             'emisor' => ['nullable', 'string', 'max:191'],
-            'emisor_email' => ['nullable', 'string', 'max:191'],
             'emisor_telefono' => ['nullable', 'string', 'max:60'],
             'precio_base' => ['required', Rule::in($columnas)],
             'descuento_pct' => ['nullable', 'numeric', 'between:0,100'],
@@ -368,9 +368,8 @@ class CotizadorController extends Controller
             \Illuminate\Support\Facades\DB::table('users')->where('id', $request->user()->id)->update(['cotizacion_serie' => $serie ?: null]);
         }
 
-        // Igual con el correo y teléfono del emisor: se recuerdan aunque sean distintos a los de acceso (vacío también se respeta).
+        // Igual con el teléfono del emisor: se recuerda para las siguientes cotizaciones (vacío también se respeta).
         \Illuminate\Support\Facades\DB::table('users')->where('id', $request->user()->id)->update([
-            'cotizacion_email' => $data['emisor_email'] ?? '',
             'cotizacion_telefono' => $data['emisor_telefono'] ?? '',
         ]);
 

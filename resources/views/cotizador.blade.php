@@ -164,17 +164,21 @@
                             </div>
 
                             <div class="row">
-                                <div class="col-12 col-lg-4 mb-3">
+                                <div class="col-12 col-sm-6 col-lg-3 mb-3">
                                     <label class="form-label" for="cliente_empresa">Cliente (empresa)</label>
                                     <input type="text" id="cliente_empresa" name="cliente_empresa" class="form-control" value="{{ old('cliente_empresa', $c->cliente_empresa) }}" maxlength="191">
                                 </div>
-                                <div class="col-12 col-sm-6 col-lg-4 mb-3">
+                                <div class="col-12 col-sm-6 col-lg-3 mb-3">
                                     <label class="form-label" for="cliente_atencion">Atención</label>
                                     <input type="text" id="cliente_atencion" name="cliente_atencion" class="form-control" value="{{ old('cliente_atencion', $c->cliente_atencion) }}" maxlength="191" placeholder="A quien corresponda.">
                                 </div>
-                                <div class="col-12 col-sm-6 col-lg-4 mb-3">
+                                <div class="col-12 col-sm-6 col-lg-3 mb-3">
                                     <label class="form-label" for="cliente_telefono">Teléfono</label>
                                     <input type="text" id="cliente_telefono" name="cliente_telefono" class="form-control" value="{{ old('cliente_telefono', $c->cliente_telefono) }}" maxlength="60">
+                                </div>
+                                <div class="col-12 col-sm-6 col-lg-3 mb-3">
+                                    <label class="form-label" for="cliente_email">Correo del cliente</label>
+                                    <input type="email" id="cliente_email" name="cliente_email" class="form-control" value="{{ old('cliente_email', $c->cliente_email) }}" maxlength="191">
                                 </div>
                             </div>
 
@@ -182,10 +186,6 @@
                                 <div class="col-12 col-lg-4 mb-3">
                                     <label class="form-label" for="emisor">Emisor de la cotización</label>
                                     <input type="text" id="emisor" name="emisor" class="form-control" value="{{ old('emisor', $c->emisor) }}" maxlength="191">
-                                </div>
-                                <div class="col-12 col-sm-6 col-lg-4 mb-3">
-                                    <label class="form-label" for="emisor_email">Correo del emisor</label>
-                                    <input type="text" id="emisor_email" name="emisor_email" class="form-control" value="{{ old('emisor_email', $c->emisor_email) }}" maxlength="191">
                                 </div>
                                 <div class="col-12 col-sm-6 col-lg-4 mb-3">
                                     <label class="form-label" for="emisor_telefono">Teléfono / Cel del emisor</label>

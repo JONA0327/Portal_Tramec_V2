@@ -18,8 +18,8 @@ class Cotizacion extends Model
     public const TERMINOS_PREDETERMINADOS = "* Los precios son expresados en el tipo de moneda indicado.\n* Tiempo de entrega sobre previa venta.\n* Precios sujetos a cambio sin previo aviso debido a la fluctuación del mercado.";
 
     protected $fillable = [
-        'user_id', 'fecha', 'serie', 'folio_numero', 'folio', 'vigencia', 'cliente_empresa', 'cliente_atencion', 'cliente_telefono', 'condiciones_pago',
-        'terminos', 'emisor', 'emisor_email', 'emisor_telefono', 'precio_base', 'descuento_pct', 'iva_pct',
+        'user_id', 'fecha', 'serie', 'folio_numero', 'folio', 'vigencia', 'cliente_empresa', 'cliente_atencion', 'cliente_telefono', 'cliente_email', 'condiciones_pago',
+        'terminos', 'emisor', 'emisor_telefono', 'precio_base', 'descuento_pct', 'iva_pct',
     ];
 
     protected function casts(): array
@@ -79,7 +79,6 @@ class Cotizacion extends Model
             'condiciones_pago' => 'CONTADO',
             'terminos' => self::TERMINOS_PREDETERMINADOS,
             'emisor' => trim($user->first_name.' '.$user->last_name),
-            'emisor_email' => $user->cotizacion_email ?? $user->email,
             'emisor_telefono' => $user->cotizacion_telefono,
             'precio_base' => 'precio_lista',
             'descuento_pct' => 0,

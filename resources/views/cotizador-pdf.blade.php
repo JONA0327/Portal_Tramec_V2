@@ -61,6 +61,7 @@
                 <tr><td class="b" style="width: 24%; background: {{ $claro }};">EMPRESA:</td><td>{{ $c->cliente_empresa }}</td></tr>
                 <tr><td class="b" style="background: {{ $claro2 }};">ATENCIÓN:</td><td style="background: {{ $claro2 }};">{{ $c->cliente_atencion }}</td></tr>
                 <tr><td class="b" style="background: {{ $claro }};">TELÉFONO:</td><td>{{ $c->cliente_telefono }}</td></tr>
+                <tr><td class="b" style="background: {{ $claro2 }};">CORREO:</td><td style="background: {{ $claro2 }};">{{ $c->cliente_email }}</td></tr>
             </table>
         </td>
         <td style="width: 42%; vertical-align: top; padding-left: 26px;">
@@ -136,7 +137,6 @@
             <div class="c" style="margin-top: 14px; line-height: 1.7;">
                 <span class="ar" style="font-size: 10px;">ATENTAMENTE</span><br>
                 <span class="b" style="font-size: 10px;">{{ $c->emisor }}</span><br>
-                @if($c->emisor_email)<span style="color: {{ $azul }}; text-decoration: underline;">{{ $c->emisor_email }}</span><br>@endif
                 @if($c->emisor_telefono)<span class="b">Cel: {{ $c->emisor_telefono }}</span>@endif
             </div>
         </td>

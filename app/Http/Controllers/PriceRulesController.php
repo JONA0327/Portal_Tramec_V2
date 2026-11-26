@@ -45,7 +45,7 @@ class PriceRulesController extends Controller
     public function index(StockService $stock): View
     {
         $catalog = $this->catalogo($stock);
-        $rules = PriceRule::orderBy('id')->get();
+        $rules = PriceRule::orderBy('orden')->orderBy('id')->get();
 
         $counts = $rules->mapWithKeys(fn (PriceRule $r) => [
             $r->id => $catalog->filter(fn (array $p) => $r->matchesMarca($p['marca'] ?? null) && $r->matches((string) ($p['codigo'] ?? ''), (string) ($p['nombre'] ?? '')))->count(),
@@ -71,6 +71,11 @@ class PriceRulesController extends Controller
         unset($data['precios1']);
 
         $rule = PriceRule::create($data);
+        // La nueva entra encima de las reglas menos específicas (usuario > nivel > todos); luego se puede subir o bajar.
+        $lista = PriceRule::whereKeyNot($rule->id)->orderBy('orden')->orderBy('id')->get();
+        $posicion = $lista->search(fn (PriceRule $r) => $r->especificidad() < $rule->especificidad());
+        $lista->splice($posicion === false ? $lista->count() : $posicion, 0, [$rule]);
+        $this->numerar($lista);
         $this->sincronizarPrecios1($rule, [], $precios1);
 
         return redirect()->route('price-rules.index')->with('status', 'Regla creada.');
@@ -92,6 +97,26 @@ class PriceRulesController extends Controller
         $this->sincronizarPrecios1($priceRule, $antes, $precios1);
 
         return redirect()->route('price-rules.index')->with('status', 'Regla actualizada.');
+    }
+
+    /** Sube o baja una regla un lugar: gana la que esté más arriba. */
+    public function mover(PriceRule $priceRule, string $direccion): RedirectResponse
+    {
+        $lista = PriceRule::orderBy('orden')->orderBy('id')->get()->values();
+        $i = $lista->search(fn (PriceRule $r) => $r->is($priceRule));
+        $j = $direccion === 'subir' ? $i - 1 : $i + 1;
+
+        if ($j >= 0 && $j < $lista->count()) {
+            [$lista[$i], $lista[$j]] = [$lista[$j], $lista[$i]];
+            $this->numerar($lista);
+        }
+
+        return back()->with('status', 'Orden de las reglas actualizado.');
+    }
+
+    private function numerar(\Illuminate\Support\Collection $lista): void
+    {
+        $lista->values()->each(fn (PriceRule $r, int $i) => $r->update(['orden' => $i + 1]));
     }
 
     public function toggle(PriceRule $priceRule): RedirectResponse

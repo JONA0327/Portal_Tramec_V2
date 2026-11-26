@@ -77,7 +77,12 @@ class ExistenciasController extends Controller
         // lo que está en cero no se muestra hasta que vuelva a haber
         // Clasificación = campo "Tipo de producto" (products.kind_of_product), como en v1.
         $clasificacion = trim((string) $request->query('clasificacion', ''));
-        $agrupar = $this->preferencia($request, 'agrupar_existencias', $request->boolean('agrupar')); // un renglón por modelo, con sus almacenes aparte (se recuerda por usuario)
+        if ($request->user()->isAdmin() && $request->query('estado') === 'editados') {
+            $estado = 'editados'; // cantidades cambiadas a mano, para resincronizarlas
+        }
+
+        // un renglón por modelo, con sus almacenes aparte (se recuerda por usuario); en "editados" va por almacén
+        $agrupar = $estado !== 'editados' && $this->preferencia($request, 'agrupar_existencias', $request->boolean('agrupar'));
 
         if (! $request->user()->isAdmin() && $estado === 'ocultos') {
             $estado = 'con_existencia'; // los ocultos son de administración
@@ -191,7 +196,8 @@ class ExistenciasController extends Controller
                 'descripcion' => $precios?->description_short ?: $nombre, // descripción corta de products; si no hay, la del ERP
                 'almacen' => $almacenNombre ?: "Almacén #{$level['id_almacen']}",
                 'cantidad_erp' => $cantidadErp,
-                'cantidad' => $usaManual ? (float) $override->cantidad_manual : $cantidadErp,
+                'cantidad' => (float) ($override?->cantidad_temporal ?? ($usaManual ? $override->cantidad_manual : $cantidadErp)),
+                'temporal' => $override?->cantidad_temporal !== null,
                 'oculto' => $override?->oculto ?? false,
                 'de_baja' => $override?->de_baja ?? false,
                 'moneda' => $precios?->base_currency ?: 'MXN',
@@ -211,12 +217,15 @@ class ExistenciasController extends Controller
         $counts = [
             'ocultos' => $rows->where('oculto', true)->count(),
             'bajas' => ProductoBaja::count(),
+            'editados' => $rows->where('temporal', true)->count(),
         ];
 
         // Por defecto no se muestran los ocultos ni las bajas -- son sus propios
         // filtros de "estado" (ver el select en la vista), no se mezclan con el
         // resto de la lista activa.
-        if ($estado === 'ocultos') {
+        if ($estado === 'editados') {
+            $filtered = $rows->where('temporal', true);
+        } elseif ($estado === 'ocultos') {
             $filtered = $rows->where('oculto', true);
         } else {
             // Sin existencia = no se muestra; reaparece sola cuando el ERP vuelve a reportar cantidad.
@@ -486,7 +495,34 @@ class ExistenciasController extends Controller
             'nombre' => $producto['nombre'] ?? $override?->nombre ?? '(producto no encontrado en el catálogo)',
             'cantidadErp' => $cantidadErp,
             'oculto' => $override?->oculto ?? false,
+            'cantidadManual' => $override?->cantidad_manual,
+            'cantidadTemporal' => $override?->cantidad_temporal,
         ]);
+    }
+
+    /** Cantidad temporal (emergencias / aclaraciones): sustituye lo que se muestra hasta resincronizar; en 0 deja de verse. */
+    public function cantidadTemporal(Request $request, string $empresa, int $idProducto, int $idAlmacen): RedirectResponse
+    {
+        $cantidad = $request->validate(['cantidad' => ['required', 'numeric', 'min:0', 'max:100000000']])['cantidad'];
+
+        ExistenciaOverride::query()->firstOrNew([
+            'empresa' => strtoupper($empresa),
+            'id_producto' => $idProducto,
+            'id_almacen' => $idAlmacen,
+        ])->forceFill(['cantidad_temporal' => $cantidad, 'updated_by' => Auth::id()])->save();
+
+        return redirect()->route('existencias')->with('status', (float) $cantidad > 0
+            ? 'Cantidad temporal guardada. Se mantiene hasta que la resincronices.'
+            : 'Quedó en 0 y oculta. La encuentras en "editados temporalmente" para resincronizarla.');
+    }
+
+    public function resincronizar(string $empresa, int $idProducto, int $idAlmacen): RedirectResponse
+    {
+        ExistenciaOverride::query()
+            ->where(['empresa' => strtoupper($empresa), 'id_producto' => $idProducto, 'id_almacen' => $idAlmacen])
+            ->update(['cantidad_temporal' => null, 'updated_by' => Auth::id()]);
+
+        return back()->with('status', 'Resincronizada: vuelve a mostrarse la cantidad original.');
     }
 
     public function ocultar(string $empresa, int $idProducto, int $idAlmacen): RedirectResponse

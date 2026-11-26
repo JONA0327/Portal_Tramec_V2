@@ -23,6 +23,9 @@
         @if($esAdmin && $counts['ocultos'] > 0)
         &nbsp;·&nbsp;<a href="{{ route('existencias', ['estado' => 'ocultos']) }}" class="text-muted">{{ $counts['ocultos'] }} ocultos</a>
         @endif
+        @if($esAdmin && $counts['editados'] > 0)
+        &nbsp;·&nbsp;<a href="{{ route('existencias', ['estado' => 'editados']) }}" class="text-warning">{{ $counts['editados'] }} editados temporalmente</a>
+        @endif
         @if($esAdmin && $counts['bajas'] > 0)
         &nbsp;·&nbsp;<a href="{{ route('bajas') }}" class="text-muted">{{ $counts['bajas'] }} en bajas</a>
         @endif
@@ -47,6 +50,7 @@
                             {{-- Avanzado: empresa + almacén + estado + palabras (en cualquier orden); busca solo al
                                  pulsar "Buscar" o Enter. "Agrupar por modelo" junta los almacenes de cada modelo en un renglón. --}}
                             <form method="GET" action="{{ route('existencias') }}" class="filtros-barra">
+                                @if($estado === 'editados')<input type="hidden" name="estado" value="editados">@endif
                                 <input type="hidden" name="filtros" value="1">{{-- distingue "filtros enviados" de "entrada sin filtros" (ver preferenciaAgrupar) --}}
                                 <input type="hidden" name="por_pagina" value="{{ $perPage }}">
                                 <button type="button" class="btn btn-secondary filtros-toggle" aria-expanded="false" aria-controls="filtros-extra">Filtros</button>
@@ -128,6 +132,9 @@
                             @endcan
 
                         <div id="resultados">
+                        @if($estado === 'editados')
+                            <div class="alert alert-warning">Viendo solo las cantidades editadas temporalmente. <a href="{{ route('existencias') }}">Volver a Existencias</a></div>
+                        @endif
                         <x-por-pagina :actual="$perPage" />
 
                         @if($levels->isEmpty())
@@ -177,7 +184,7 @@
                                                     @foreach($row['almacenes'] as $alm)
                                                         <{{ $esAdmin ? 'a' : 'span' }} @if($esAdmin) href="{{ route('existencias.edit', [$alm['empresa'], $alm['id_producto'], $alm['id_almacen']]) }}" @endif
                                                             class="d-inline-block border rounded px-2 py-1 mr-1 mb-1 text-nowrap text-decoration-none {{ $alm['de_baja'] ? 'text-muted' : '' }}"
-                                                            @if($esAdmin) title="Opciones de {{ $alm['almacen'] }}" @endif>
+                                                            @if($esAdmin) title="Editar {{ $alm['almacen'] }}" @endif>
                                                             {{ $alm['almacen'] }}:
                                                             <strong>{{ rtrim(rtrim(number_format($alm['cantidad'], 2, '.', ','), '0'), '.') ?: '0' }}</strong>
                                                         </{{ $esAdmin ? 'a' : 'span' }}>
@@ -227,7 +234,7 @@
                                     </thead>
                                     <tbody id="existencias-tbody">
                                         @foreach($levels as $row)
-                                            <tr data-level-id="{{ $row['empresa'].':'.$row['id_producto'].':'.$row['id_almacen'] }}">
+                                            <tr data-level-id="{{ $row['empresa'].':'.$row['id_producto'].':'.$row['id_almacen'] }}" @if($row['temporal']) data-temporal @endif>
                                                 @if($puedeCotizar)
                                                     <td><input type="checkbox" class="sel-item" form="form-masivo" name="items[]" value="ex:{{ $row['empresa'] }}:{{ $row['id_producto'] }}:{{ $row['id_almacen'] }}" aria-label="Seleccionar {{ $row['codigo'] }} en {{ $row['almacen'] }}"></td>
                                                 @endif
@@ -236,6 +243,7 @@
                                                 <td class="col-almacen">{{ $row['almacen'] }}</td>
                                                 <td class="col-cantidad">
                                                     {{ rtrim(rtrim(number_format($row['cantidad'], 2, '.', ','), '0'), '.') ?: '0' }}
+                                                    @if($esAdmin && $row['temporal'])<br><small class="text-warning">temporal</small>@endif
                                                 </td>
                                                 @foreach($columnasPrecio as $key => $label)
                                                     <td class="text-nowrap {{ $row[$key] !== null && $puedeCopiar ? 'copy-price-cell' : '' }} {{ isset($row['originales'][$key]) ? 'precio-ajustado' : '' }}"
@@ -261,9 +269,12 @@
                                                     @php
                                                         $rowUrlBase = route('existencias.edit', [$row['empresa'], $row['id_producto'], $row['id_almacen']]);
                                                     @endphp
-                                                    <a href="{{ $rowUrlBase }}" class="btn btn-sm btn-primary">Opciones</a>
-                                                    @if(true)
-                                                        <a href="{{ route('existencias.confirm-baja', [$row['empresa'], $row['id_producto'], $row['id_almacen']]) }}" class="btn btn-sm btn-danger">Dar de baja</a>
+                                                    <a href="{{ $rowUrlBase }}" class="btn btn-sm btn-primary">Editar</a>
+                                                    @if($row['temporal'])
+                                                        <form method="POST" action="{{ route('existencias.resincronizar', [$row['empresa'], $row['id_producto'], $row['id_almacen']]) }}" class="d-inline">
+                                                            @csrf
+                                                            <button type="submit" class="btn btn-sm btn-secondary" title="Quitar la cantidad temporal">Resincronizar</button>
+                                                        </form>
                                                     @endif
                                                 </td>
                                                 @endif
@@ -323,7 +334,7 @@
                 pusher.subscribe('existencias-updates').bind('existencia.changed', function (level) {
                     var key = (level.empresa_codigo || 'TRAMEC') + ':' + level.id_producto + ':' + level.id_almacen;
                     var row = document.querySelector('#existencias-tbody tr[data-level-id="' + key + '"]');
-                    if (!row) {
+                    if (!row || row.hasAttribute('data-temporal')) { // la cantidad temporal manda hasta resincronizar
                         return;
                     }
                     var cantidad = Number(level.cantidad ?? 0);

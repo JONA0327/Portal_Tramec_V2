@@ -16,17 +16,16 @@ class ProfileUpdateRequest extends FormRequest
      */
     public function rules(): array
     {
-        return [
+        // Solo el administrador puede cambiar correos; para los demás 'email' no se valida y por tanto se ignora.
+        $reglas = [
             'first_name' => ['required', 'string', 'max:255'],
             'last_name' => ['required', 'string', 'max:255'],
-            'email' => [
-                'required',
-                'string',
-                'lowercase',
-                'email',
-                'max:255',
-                Rule::unique(User::class)->ignore($this->user()->id),
-            ],
         ];
+
+        if ($this->user()->isAdmin()) {
+            $reglas['email'] = ['required', 'string', 'lowercase', 'email', 'max:255', Rule::unique(User::class)->ignore($this->user()->id)];
+        }
+
+        return $reglas;
     }
 }

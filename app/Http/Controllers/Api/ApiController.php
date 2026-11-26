@@ -190,12 +190,15 @@ class ApiController extends Controller
         $almacenes = Warehouse::query()->whereNotNull('idERP_empresa')->whereNotNull('almacen_erp_id')->get()
             ->keyBy(fn (Warehouse $w) => strtoupper($w->idERP_empresa).':'.$w->almacen_erp_id);
 
-        $filas = collect($levels->getLevels())->map(function (array $l) use ($productos, $almacenes) {
+        // La cantidad temporal puesta en el portal también manda en la API.
+        $temporales = ExistenciaOverride::whereNotNull('cantidad_temporal')->get()->keyBy->key();
+
+        $filas = collect($levels->getLevels())->map(function (array $l) use ($productos, $almacenes, $temporales) {
             $emp = strtoupper($l['empresa_codigo'] ?? 'TRAMEC');
             $p = $productos->get("{$emp}:{$l['id_producto']}");
             $w = $almacenes->get("{$emp}:{$l['id_almacen']}");
 
-            return $p && $w && ! $this->deBaja($p) ? ['id_warehouse' => $w->id, 'id_product' => $p->id, 'quantity' => (float) $l['cantidad']] : null;
+            return $p && $w && ! $this->deBaja($p) ? ['id_warehouse' => $w->id, 'id_product' => $p->id, 'quantity' => (float) ($temporales->get("{$emp}:{$l['id_producto']}:{$l['id_almacen']}")?->cantidad_temporal ?? $l['cantidad'])] : null;
         })->filter()->filter($filtro)->values();
 
         return $this->ok($filas, 'Stocks retrieved successfully.');

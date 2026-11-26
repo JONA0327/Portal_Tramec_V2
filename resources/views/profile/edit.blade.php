@@ -35,7 +35,12 @@
                             </div>
                             <div class="mb-3">
                                 <label class="form-label" for="email">Correo</label>
-                                <input type="email" id="email" name="email" value="{{ old('email', $user->email) }}" class="form-control" maxlength="255" required autocomplete="username">
+                                @if($user->isAdmin())
+                                    <input type="email" id="email" name="email" value="{{ old('email', $user->email) }}" class="form-control" maxlength="255" required autocomplete="username">
+                                @else
+                                    <input type="email" id="email" value="{{ $user->email }}" class="form-control" disabled>
+                                    <div class="form-text">El correo está bloqueado. Si necesitas cambiarlo, pídeselo a un administrador.</div>
+                                @endif
                             </div>
                             <div class="mb-4">
                                 <span class="form-label d-block">Nivel</span>

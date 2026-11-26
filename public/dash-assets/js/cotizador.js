@@ -67,7 +67,7 @@
     });
 
     // Guardado automático: poco después de cada cambio se guarda en el servidor (sin recargar la página).
-    var pendiente = null;
+    var pendiente = null, enviado = false;
     function guardarAhora() {
         pendiente = null;
         if (!window.fetch) { return; }
@@ -76,7 +76,9 @@
             headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
         }).catch(function () { /* sin red: se guarda al descargar el PDF */ });
     }
-    function modificado() { clearTimeout(pendiente); pendiente = setTimeout(guardarAhora, 700); }
+    function modificado() { clearTimeout(pendiente); if (!enviado) { pendiente = setTimeout(guardarAhora, 700); } }
+    // Al enviar el formulario (PDF, convertir, quitar) ya se guarda todo: no debe llegar otro guardado automático detrás.
+    form.addEventListener('submit', function () { clearTimeout(pendiente); pendiente = null; enviado = true; });
     form.addEventListener('input', modificado);
     form.addEventListener('change', modificado);
     // si se sale de la página con un cambio sin guardar, se manda en ese momento

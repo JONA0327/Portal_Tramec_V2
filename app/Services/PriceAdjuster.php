@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Auth;
  * Aplica las PriceRule activas (las que ve el nivel del usuario logueado) a un
  * precio ya leído de la BD, solo para mostrarlo. Registrado como scoped (ver
  * AppServiceProvider): las reglas se leen una vez por request.
- * Varias reglas que coincidan se apilan en orden de creación.
+ * Si varias coinciden, solo se aplica la de más arriba en la lista de reglas (price_rules.orden).
  */
 class PriceAdjuster
 {
@@ -25,28 +25,25 @@ class PriceAdjuster
             return null;
         }
 
-        // Las reglas que coinciden se apilan, pero solo las más específicas: una regla para usuarios concretos anula a las
-        // de un nivel y estas a las generales ("aplica a todos"). Entre reglas del mismo grado se apilan como siempre.
-        $coinciden = $this->rules()->filter(fn (PriceRule $r) => $r->appliesTo($column, $codigo, $nombre, $producto?->brand));
-        $grado = $coinciden->max(fn (PriceRule $r) => $r->especificidad());
-
-        foreach ($coinciden->filter(fn (PriceRule $r) => $r->especificidad() === $grado) as $rule) {
-            // Precio temporal: sustituye el precio por el calculado con el Precio 1 (sin Precio 1, queda el de siempre).
-            if ($rule->tipo === 'temporal') {
-                $price = PriceRule::precioTemporal($producto, $column) ?? $price;
-
+        // Gana la primera regla de la lista que coincida y pueda calcular el precio; las de abajo ya no se aplican.
+        foreach ($this->rules() as $rule) {
+            if (! $rule->appliesTo($column, $codigo, $nombre, $producto?->brand)) {
                 continue;
             }
 
-            // Precio de lista en los canales: mismo precio de lista en los canales elegidos, sin multiplicar
-            // por ningún factor (sin list_price, queda el de siempre).
-            if ($rule->tipo === 'fija_lista') {
-                $price = $producto?->list_price !== null ? round((float) $producto->list_price, 2) : $price;
+            $nuevo = match ($rule->tipo) {
+                // Precio temporal: el calculado con el Precio 1 (sin Precio 1 no aplica y sigue la siguiente regla).
+                'temporal' => PriceRule::precioTemporal($producto, $column),
+                // Precio de lista en los canales, sin factor (sin list_price no aplica).
+                'fija_lista' => $producto?->list_price !== null ? (float) $producto->list_price : null,
+                default => $rule->apply($price),
+            };
 
-                continue;
+            if ($nuevo !== null) {
+                $price = $nuevo;
+
+                break;
             }
-
-            $price = $rule->apply($price);
         }
 
         return round($price, 2);
@@ -92,14 +89,14 @@ class PriceAdjuster
     {
         $user = Auth::user();
 
-        return $this->temporales ??= PriceRule::where('activo', true)->where('tipo', 'temporal')->orderBy('id')->get()
+        return $this->temporales ??= PriceRule::where('activo', true)->where('tipo', 'temporal')->orderBy('orden')->orderBy('id')->get()
             ->filter(fn (PriceRule $r) => $user !== null && in_array($user->id, array_map('intval', $r->usuarios_excluidos ?? []), true))
             ->values();
     }
 
     private function rules(): Collection
     {
-        return $this->rules ??= PriceRule::where('activo', true)->orderBy('id')->get()
+        return $this->rules ??= PriceRule::where('activo', true)->orderBy('orden')->orderBy('id')->get()
             ->filter(fn (PriceRule $r) => $r->visibleTo(Auth::user()))
             ->values();
     }

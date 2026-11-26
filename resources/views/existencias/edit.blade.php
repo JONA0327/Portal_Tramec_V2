@@ -5,20 +5,44 @@
             <div class="col-12 col-lg-6">
                 <div class="card">
                     <div class="card-header d-flex justify-content-between align-items-center">
-                        <span>Opciones: {{ $codigo }}</span>
+                        <span>Editar: {{ $codigo }}</span>
                         <a href="{{ route('existencias') }}" class="btn btn-sm btn-secondary">Cancelar</a>
                     </div>
 
                     <div class="card-body">
                         <p class="text-muted mb-3">{{ $nombre }}</p>
 
-                        {{-- La cantidad viene del ERP (o del Excel de Schenker) y no se edita desde el portal. --}}
+                        @php
+                            $original = $cantidadErp ?? ($cantidadManual !== null ? (float) $cantidadManual : null);
+                            $texto = fn ($n) => rtrim(rtrim(number_format((float) $n, 2, '.', ','), '0'), '.') ?: '0';
+                        @endphp
+                        @if($errors->any())<div class="alert alert-danger">{{ $errors->first() }}</div>@endif
+
                         <div class="alert alert-secondary">
-                            Cantidad:
-                            <strong>{{ $cantidadErp !== null ? rtrim(rtrim(number_format($cantidadErp, 2, '.', ','), '0'), '.') : 'sin dato del ERP' }}</strong>
-                            <br><small>Viene de CONTPAQi{{ $cantidadErp === null ? ' (o del Excel de Schenker)' : '' }}; no se edita desde el portal.
-                            Si llega a cero deja de mostrarse hasta que vuelva a haber existencia.</small>
+                            Cantidad original: <strong>{{ $original !== null ? $texto($original) : 'sin dato' }}</strong>
+                            <small>({{ $cantidadErp !== null ? 'CONTPAQi' : 'Excel de Schenker' }})</small>
+                            @if($cantidadTemporal !== null)
+                                <br>Cantidad temporal en uso: <strong>{{ $texto($cantidadTemporal) }}</strong>
+                            @endif
                         </div>
+
+                        <form method="POST" action="{{ route('existencias.cantidad', [$empresa, $idProducto, $idAlmacen]) }}" class="mb-2">
+                            @csrf
+                            <label class="form-label" for="cantidad">Cantidad temporal</label>
+                            <div class="d-flex" style="gap: 8px;">
+                                <input type="number" id="cantidad" name="cantidad" class="form-control" min="0" step="any" required
+                                    value="{{ old('cantidad', $cantidadTemporal !== null ? (float) $cantidadTemporal : $original) }}">
+                                <button type="submit" class="btn btn-primary">Guardar</button>
+                            </div>
+                            <div class="form-text">No cambia CONTPAQi. Se mantiene hasta que la resincronices; en 0 deja de mostrarse.</div>
+                        </form>
+                        @if($cantidadTemporal !== null)
+                            <form method="POST" action="{{ route('existencias.resincronizar', [$empresa, $idProducto, $idAlmacen]) }}" class="mb-3">
+                                @csrf
+                                <button type="submit" class="btn btn-secondary">Resincronizar (quitar el cambio)</button>
+                            </form>
+                        @endif
+                        <hr>
 
                         {{-- Ocultar/restaurar no toca la cantidad ni el ERP -- solo si esta
                              fila aparece o no en el listado de Existencias (ver

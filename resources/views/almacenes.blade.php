@@ -40,7 +40,7 @@
                                         <th>ID</th>
                                         <th>Nombre</th>
                                         <th>Empresa</th>
-                                        <th>Acciones</th>
+                                        @can('admin')<th>Acciones</th>@endcan
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -58,6 +58,7 @@
                                             </td>
                                             <td>{{ $row['nombre'] }}</td>
                                             <td>{{ $row['empresa'] ? strtoupper($row['empresa']) : '-' }}</td>
+                                            @can('admin')
                                             <td class="text-nowrap">
                                                 @if($row['local_id'])
                                                     <a href="{{ route('warehouses.confirm-destroy', $row['local_id']) }}" class="btn btn-sm btn-danger">Borrar</a>
@@ -74,6 +75,7 @@
                                                     </form>
                                                 @endif
                                             </td>
+                                            @endcan
                                         </tr>
                                     @endforeach
                                 </tbody>

@@ -55,7 +55,7 @@
                                                 <td class="text-nowrap">
                                                     <a href="{{ route('cotizador.historial.pdf', $r) }}" class="btn btn-sm btn-primary">Descargar PDF</a>
                                                     @if($r->moneda === 'USD')
-                                                        <form method="POST" action="{{ route('cotizador.historial.mxn', $r) }}" class="d-inline" data-mxn-historial data-folio="{{ $r->folio }}">
+                                                        <form method="POST" action="{{ route('cotizador.historial.mxn', $r) }}" class="d-inline" data-mxn-historial data-folio="{{ $r->folio }}" data-total="{{ $r->total }}">
                                                             @csrf
                                                             <input type="hidden" name="tipo_cambio" value="">
                                                             <input type="hidden" name="folio" value="">
@@ -87,10 +87,21 @@
         </div>
     </div>
 
+    @include('partials.modal-mxn')
     <script src="{{ asset('dash-assets/js/convertir-mxn.js').'?v='.filemtime(public_path('dash-assets/js/convertir-mxn.js')) }}" defer></script>
     @if(session('descargar'))
-        {{-- Descarga la copia en MXN recién creada; la página (ya con el registro nuevo) se queda. --}}
-        <script>window.location.href = @json(session('descargar'));</script>
+        {{-- Descarga la copia en MXN recién creada. Se hace al terminar de cargar y sin navegar: si se cambia la dirección
+             antes, el evento "load" no llega y la animación de carga del tema se queda puesta. --}}
+        <script>
+            window.addEventListener('load', function () {
+                var a = document.createElement('a');
+                a.href = @json(session('descargar'));
+                a.download = '';
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+            });
+        </script>
     @endif
 
 </x-layouts.dashboard>

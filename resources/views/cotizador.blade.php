@@ -270,6 +270,7 @@
         }
     </style>
 
+    @include('partials.modal-mxn')
     <script src="{{ asset('dash-assets/js/convertir-mxn.js').'?v='.filemtime(public_path('dash-assets/js/convertir-mxn.js')) }}" defer></script>
     <script src="{{ asset('dash-assets/js/cotizador.js').'?v='.filemtime(public_path('dash-assets/js/cotizador.js')) }}" defer></script>
 

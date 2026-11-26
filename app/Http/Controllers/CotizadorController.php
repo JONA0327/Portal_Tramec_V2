@@ -321,6 +321,12 @@ class CotizadorController extends Controller
             \Illuminate\Support\Facades\DB::table('users')->where('id', $request->user()->id)->update(['cotizacion_serie' => $serie ?: null]);
         }
 
+        // Igual con el correo y teléfono del emisor: se recuerdan aunque sean distintos a los de acceso (vacío también se respeta).
+        \Illuminate\Support\Facades\DB::table('users')->where('id', $request->user()->id)->update([
+            'cotizacion_email' => $data['emisor_email'] ?? '',
+            'cotizacion_telefono' => $data['emisor_telefono'] ?? '',
+        ]);
+
         $cotizacion->update(collect($data)->except(['items', 'serie', 'folio_numero'])->map(fn ($v) => $v ?? '')->all() + [
             'serie' => $serie ?: null,
             'folio_numero' => $numero,

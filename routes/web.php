@@ -113,7 +113,8 @@ Route::get('/almacenes', [WarehousesController::class, 'index'])
     ->middleware(['auth', 'verified', 'nivel:almacenes'])
     ->name('warehouses');
 
-Route::middleware(['auth', 'verified', 'nivel:almacenes'])->prefix('almacenes')->name('warehouses.')->group(function () {
+// Registrar y borrar: solo ADMINISTRADOR; los demás niveles con acceso solo consultan.
+Route::middleware(['auth', 'verified', 'nivel:almacenes', 'can:admin'])->prefix('almacenes')->name('warehouses.')->group(function () {
     Route::post('/registrar', [WarehousesController::class, 'register'])->name('register');
     Route::get('/{warehouse}/eliminar', [WarehousesController::class, 'confirmDestroy'])->name('confirm-destroy');
     Route::delete('/{warehouse}', [WarehousesController::class, 'destroy'])->name('destroy');

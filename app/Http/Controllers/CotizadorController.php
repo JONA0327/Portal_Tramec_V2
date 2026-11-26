@@ -287,7 +287,7 @@ class CotizadorController extends Controller
             'g' => $grupo,
             'folio' => $folio,
             'logo' => $this->logoBase64(),
-            'qr' => $this->imagenBase64('qr-tramec.png'), // QR simple a https://tramec.mx/
+            'qr' => $this->imagenBase64('qr-tramec.png'), // QR con diseño TRAMEC a https://tramec.mx (PNG generado de qr-code v2.svg)
             'marcas' => collect(['delta', 'omec', 'stm', 'wolong', 'oli-sick'])->mapWithKeys(fn ($m) => [$m => $this->imagenBase64("pdf/marca-{$m}.png")])->filter()->all(), // pie del PDF
         ])->render();
 

@@ -1,13 +1,13 @@
-{{-- Paginación del portal (Bootstrap 4 del tema): "Anterior / números / Siguiente" en escritorio y, en teléfono,
+{{-- Paginación del portal (Bootstrap 4 del tema): flechas y números en escritorio y, en teléfono,
      solo "‹ · X / Y · ›" para que quepa en una línea. --}}
 @if ($paginator->hasPages())
     <nav aria-label="Paginación" class="paginacion-portal">
         <ul class="pagination justify-content-center flex-nowrap mb-0">
             <li class="page-item {{ $paginator->onFirstPage() ? 'disabled' : '' }}">
                 @if ($paginator->onFirstPage())
-                    <span class="page-link">‹ <span class="d-none d-sm-inline">Anterior</span></span>
+                    <span class="page-link" aria-label="Anterior">‹</span>
                 @else
-                    <a class="page-link" href="{{ $paginator->previousPageUrl() }}" rel="prev">‹ <span class="d-none d-sm-inline">Anterior</span></a>
+                    <a class="page-link" href="{{ $paginator->previousPageUrl() }}" rel="prev" title="Anterior" aria-label="Anterior">‹</a>
                 @endif
             </li>
 
@@ -31,9 +31,9 @@
 
             <li class="page-item {{ $paginator->hasMorePages() ? '' : 'disabled' }}">
                 @if ($paginator->hasMorePages())
-                    <a class="page-link" href="{{ $paginator->nextPageUrl() }}" rel="next"><span class="d-none d-sm-inline">Siguiente</span> ›</a>
+                    <a class="page-link" href="{{ $paginator->nextPageUrl() }}" rel="next" title="Siguiente" aria-label="Siguiente">›</a>
                 @else
-                    <span class="page-link"><span class="d-none d-sm-inline">Siguiente</span> ›</span>
+                    <span class="page-link" aria-label="Siguiente">›</span>
                 @endif
             </li>
         </ul>

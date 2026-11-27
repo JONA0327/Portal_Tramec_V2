@@ -26,6 +26,8 @@ class ExistenciaOverride extends Model
         'cantidad_temporal',
         'cantidad_erp_al_editar',
         'oculto',
+        'oculto_by',
+        'oculto_at',
         'de_baja',
         'de_baja_at',
         'de_baja_by',
@@ -39,6 +41,7 @@ class ExistenciaOverride extends Model
             'cantidad_temporal' => 'decimal:2',
             'cantidad_erp_al_editar' => 'decimal:2',
             'oculto' => 'boolean',
+            'oculto_at' => 'datetime',
             'de_baja' => 'boolean',
             'de_baja_at' => 'datetime',
         ];
@@ -89,6 +92,8 @@ class ExistenciaOverride extends Model
                     'cantidad_manual' => $o->updated_at > $real->updated_at ? $o->cantidad_manual : $real->cantidad_manual,
                     'cantidad_temporal' => $real->cantidad_temporal ?? $o->cantidad_temporal,
                     'oculto' => $real->oculto || $o->oculto,
+                    'oculto_by' => $real->oculto_by ?? $o->oculto_by,
+                    'oculto_at' => $real->oculto_at ?? $o->oculto_at,
                     'de_baja' => $real->de_baja || $o->de_baja,
                 ])->save();
                 $o->delete();

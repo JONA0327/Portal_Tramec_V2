@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\ExistenciaOverride;
 use App\Models\ProductoBaja;
 use App\Models\Product;
+use App\Models\User;
 use App\Models\Warehouse;
 use App\Services\PriceAdjuster;
 use App\Services\StockLevelService;
@@ -47,14 +48,14 @@ class ExistenciasController extends Controller
      * "Agrupar por modelo" y "Ver ocultos" se guardan en el usuario (users.agrupar_existencias / ver_ocultos_existencias)
      * y vuelven a aplicarse en la siguiente visita, aunque se cierre la sesión. Al enviar el formulario de filtros (campo
      * oculto "filtros") manda lo que está marcado y se guarda; al entrar sin filtros (menú, enlaces) se usa lo guardado.
-     * Solo se desmarcan a mano.
+     * Un enlace que la pide (?estado=ocultos) también la marca y la guarda. Solo se desmarcan a mano.
      */
     private function preferencia(Request $request, string $columna, bool $enviado): bool
     {
         $usuario = $request->user();
         $guarda = \Illuminate\Support\Facades\Schema::hasColumn('users', $columna); // por si falta migrar
 
-        if (! $request->has('filtros')) {
+        if (! $request->has('filtros') && ! $enviado) {
             return $guarda && $usuario ? (bool) $usuario->{$columna} : $enviado;
         }
 
@@ -69,6 +70,7 @@ class ExistenciasController extends Controller
     public function index(Request $request, StockLevelService $stockLevels, StockService $stock, PriceAdjuster $adjuster): View
     {
         $buscar = trim((string) $request->query('buscar', ''));
+        $motivo = (string) $request->query('motivo', ''); // en "ocultos": admin, sistema o todos
         $marca = trim((string) $request->query('marca', ''));
         $almacen = trim((string) $request->query('almacen', ''));
         // Un enlace con ?estado=ocultos (sin formulario) lo pide expresamente; si no, vale lo guardado del usuario.
@@ -81,12 +83,15 @@ class ExistenciasController extends Controller
             $estado = 'editados'; // cantidades cambiadas a mano, para resincronizarlas
         }
 
-        // un renglón por modelo, con sus almacenes aparte (se recuerda por usuario); en "editados" va por almacén
-        $agrupar = $estado !== 'editados' && $this->preferencia($request, 'agrupar_existencias', $request->boolean('agrupar'));
+        // un renglón por modelo, con sus almacenes aparte (se recuerda por usuario)
+        $agruparMarcado = $this->preferencia($request, 'agrupar_existencias', $request->boolean('agrupar'));
 
         if (! $request->user()->isAdmin() && $estado === 'ocultos') {
             $estado = 'con_existencia'; // los ocultos son de administración
         }
+
+        // En "ocultos" y "editados" se trabaja almacén por almacén (cada fila con su botón), aunque esté marcado agrupar.
+        $agrupar = $agruparMarcado && $estado === 'con_existencia';
 
         $productsByKey = collect($stock->getProducts())
             ->keyBy(fn (array $p) => ($p['empresa_codigo'] ?? 'TRAMEC').':'.$p['id']);
@@ -187,6 +192,13 @@ class ExistenciasController extends Controller
                 ...($nivel === 9 ? ['su_costo' => $canalEspecial] : []),
             ], $codigo, $precios?->description_short ?: $nombre, $precios); // las reglas filtran por código y descripción (lo que ve el usuario)
 
+            $cantidad = (float) ($override?->cantidad_temporal ?? ($usaManual ? $override->cantidad_manual : $cantidadErp));
+            $oculto = (bool) ($override?->oculto ?? false);
+            $temporal = $override?->cantidad_temporal !== null;
+            // Por qué no sale en la lista: lo ocultó un administrador (a mano o con cantidad temporal en 0), el sistema
+            // porque no hay existencia, o null si se ve.
+            $ocultadoPor = $oculto || ($temporal && $cantidad <= 0) ? 'admin' : ($cantidad <= 0 ? 'sistema' : null);
+
             return [
                 'empresa' => $empresaCodigo,
                 'id_producto' => $level['id_producto'],
@@ -196,9 +208,12 @@ class ExistenciasController extends Controller
                 'descripcion' => $precios?->description_short ?: $nombre, // descripción corta de products; si no hay, la del ERP
                 'almacen' => $almacenNombre ?: "Almacén #{$level['id_almacen']}",
                 'cantidad_erp' => $cantidadErp,
-                'cantidad' => (float) ($override?->cantidad_temporal ?? ($usaManual ? $override->cantidad_manual : $cantidadErp)),
-                'temporal' => $override?->cantidad_temporal !== null,
-                'oculto' => $override?->oculto ?? false,
+                'cantidad' => $cantidad,
+                'temporal' => $temporal,
+                'oculto' => $oculto,
+                'ocultado_por' => $ocultadoPor,
+                'ocultado_usuario' => $oculto ? $override->oculto_by : ($ocultadoPor === 'admin' ? $override->updated_by : null),
+                'ocultado_fecha' => $oculto ? $override->oculto_at : ($ocultadoPor === 'admin' ? $override->updated_at : null),
                 'de_baja' => $override?->de_baja ?? false,
                 'moneda' => $precios?->base_currency ?: 'MXN',
                 'clasificacion' => $precios?->kind_of_product ?: null,
@@ -215,7 +230,8 @@ class ExistenciasController extends Controller
         // Conteos sobre el total sin filtrar, para que los avisos del header no
         // cambien según lo que se esté buscando en ese momento.
         $counts = [
-            'ocultos' => $rows->where('oculto', true)->count(),
+            'ocultos' => $rows->where('ocultado_por', 'admin')->count(),
+            'sin_existencia' => $rows->where('ocultado_por', 'sistema')->count(),
             'bajas' => ProductoBaja::count(),
             'editados' => $rows->where('temporal', true)->count(),
         ];
@@ -226,10 +242,10 @@ class ExistenciasController extends Controller
         if ($estado === 'editados') {
             $filtered = $rows->where('temporal', true);
         } elseif ($estado === 'ocultos') {
-            $filtered = $rows->where('oculto', true);
+            $filtered = in_array($motivo, ['admin', 'sistema'], true) ? $rows->where('ocultado_por', $motivo) : $rows->whereNotNull('ocultado_por');
         } else {
             // Sin existencia = no se muestra; reaparece sola cuando el ERP vuelve a reportar cantidad.
-            $filtered = $rows->where('oculto', false)->filter(fn (array $r) => $r['cantidad'] > 0);
+            $filtered = $rows->whereNull('ocultado_por');
         }
 
         $almacenes = $rows->pluck('almacen')->unique()->sort()->values();
@@ -251,7 +267,8 @@ class ExistenciasController extends Controller
             $filtered = $filtered->filter(fn (array $r) => Search::all($buscar, $r['codigo'], $r['descripcion']));
         }
 
-        $filtered = $filtered->sortBy([['codigo', 'asc'], ['almacen', 'asc']])->values();
+        // En "ocultos" van primero los del administrador ("admin" < "sistema").
+        $filtered = $filtered->sortBy($estado === 'ocultos' ? [['ocultado_por', 'asc'], ['codigo', 'asc'], ['almacen', 'asc']] : [['codigo', 'asc'], ['almacen', 'asc']])->values();
 
         if ($agrupar) {
             // Un renglón por modelo (empresa + código): precios una sola vez y, aparte, cada almacén con su cantidad.
@@ -283,11 +300,14 @@ class ExistenciasController extends Controller
             'levels' => $paginated,
             'perPage' => $perPage,
             'agrupar' => $agrupar,
+            'agruparMarcado' => $agruparMarcado,
             'buscar' => $buscar,
             'marca' => $marca,
             'marcas' => Product::whereNotNull('brand')->where('brand', '!=', '')->distinct()->orderBy('brand')->pluck('brand'),
             'almacen' => $almacen,
             'estado' => $estado,
+            'motivo' => $motivo,
+            'usuarios' => $estado === 'ocultos' ? User::whereIn('id', $filtered->pluck('ocultado_usuario')->filter()->unique())->get()->keyBy('id') : collect(),
             'clasificacion' => $clasificacion,
             'clasificaciones' => Product::whereNotNull('kind_of_product')->where('kind_of_product', '!=', '')->distinct()->orderBy('kind_of_product')->pluck('kind_of_product'),
             'almacenes' => $almacenes,
@@ -532,7 +552,7 @@ class ExistenciasController extends Controller
             'id_producto' => $idProducto,
             'id_almacen' => $idAlmacen,
         ]);
-        $override->forceFill(['oculto' => true, 'updated_by' => Auth::id()])->save();
+        $override->forceFill(['oculto' => true, 'oculto_by' => Auth::id(), 'oculto_at' => now(), 'updated_by' => Auth::id()])->save();
 
         return back()->with('status', 'Fila ocultada del listado (no afecta al ERP).');
     }
@@ -541,9 +561,9 @@ class ExistenciasController extends Controller
     {
         ExistenciaOverride::query()
             ->where(['empresa' => strtoupper($empresa), 'id_producto' => $idProducto, 'id_almacen' => $idAlmacen])
-            ->update(['oculto' => false, 'updated_by' => Auth::id()]);
+            ->update(['oculto' => false, 'oculto_by' => null, 'oculto_at' => null, 'updated_by' => Auth::id()]);
 
-        return back()->with('status', 'Fila restaurada al listado.');
+        return back()->with('status', 'Añadido a la lista. Si no tiene existencia, aparecerá cuando vuelva a haber.');
     }
 
     public function confirmBaja(string $empresa, int $idProducto, int $idAlmacen, StockService $stock): View

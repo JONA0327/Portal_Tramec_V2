@@ -21,7 +21,7 @@
         Todavía sin sincronizar
         @endif
         @if($esAdmin && $counts['ocultos'] > 0)
-        &nbsp;·&nbsp;<a href="{{ route('existencias', ['estado' => 'ocultos']) }}" class="text-muted">{{ $counts['ocultos'] }} ocultos</a>
+        &nbsp;·&nbsp;<a href="{{ route('existencias', ['estado' => 'ocultos', 'motivo' => 'admin']) }}" class="text-muted">{{ $counts['ocultos'] }} ocultos</a>
         @endif
         @if($esAdmin && $counts['editados'] > 0)
         &nbsp;·&nbsp;<a href="{{ route('existencias', ['estado' => 'editados']) }}" class="text-warning">{{ $counts['editados'] }} editados temporalmente</a>
@@ -51,6 +51,7 @@
                                  pulsar "Buscar" o Enter. "Agrupar por modelo" junta los almacenes de cada modelo en un renglón. --}}
                             <form method="GET" action="{{ route('existencias') }}" class="filtros-barra">
                                 @if($estado === 'editados')<input type="hidden" name="estado" value="editados">@endif
+                                @if($estado === 'ocultos' && $motivo !== '')<input type="hidden" name="motivo" value="{{ $motivo }}">@endif
                                 <input type="hidden" name="filtros" value="1">{{-- distingue "filtros enviados" de "entrada sin filtros" (ver preferenciaAgrupar) --}}
                                 <input type="hidden" name="por_pagina" value="{{ $perPage }}">
                                 <button type="button" class="btn btn-secondary filtros-toggle" aria-expanded="false" aria-controls="filtros-extra">Filtros</button>
@@ -87,7 +88,7 @@
                                 @endcan
                                 <div class="filtros-opciones">
                                     <label class="filtro-check">
-                                        <input type="checkbox" name="agrupar" value="1" @checked($agrupar)>
+                                        <input type="checkbox" name="agrupar" value="1" @checked($agruparMarcado)>
                                         Agrupar por modelo
                                     </label>
                                     @if($esAdmin)
@@ -134,6 +135,15 @@
                         <div id="resultados">
                         @if($estado === 'editados')
                             <div class="alert alert-warning">Viendo solo las cantidades editadas temporalmente. <a href="{{ route('existencias') }}">Volver a Existencias</a></div>
+                        @endif
+                        @if($estado === 'ocultos')
+                            <div class="d-flex flex-wrap align-items-center mb-3" style="gap: 8px;">
+                                <span class="text-muted">Ocultado por:</span>
+                                @foreach(['' => ['Todos', $counts['ocultos'] + $counts['sin_existencia']], 'admin' => ['Administrador', $counts['ocultos']], 'sistema' => ['Sistema (sin existencia)', $counts['sin_existencia']]] as $clave => [$texto, $total])
+                                    <a href="{{ route('existencias', array_filter(['estado' => 'ocultos', 'motivo' => $clave])) }}"
+                                        class="btn btn-sm {{ $motivo === $clave ? 'btn-primary' : 'btn-outline-secondary' }}">{{ $texto }} ({{ $total }})</a>
+                                @endforeach
+                            </div>
                         @endif
                         <x-por-pagina :actual="$perPage" />
 
@@ -226,6 +236,7 @@
                                             <th>Descripción</th>
                                             <th>Almacén</th>
                                             <th>Cantidad</th>
+                                            @if($estado === 'ocultos')<th>Ocultado por</th>@endif
                                             @foreach($columnasPrecio as $label)
                                                 <th>{{ $label }}</th>
                                             @endforeach
@@ -245,6 +256,19 @@
                                                     {{ rtrim(rtrim(number_format($row['cantidad'], 2, '.', ','), '0'), '.') ?: '0' }}
                                                     @if($esAdmin && $row['temporal'])<br><small class="text-warning">temporal</small>@endif
                                                 </td>
+                                                @if($estado === 'ocultos')
+                                                    <td>
+                                                        @if($row['ocultado_por'] === 'sistema')
+                                                            <span class="badge bg-secondary text-white">Sistema</span>
+                                                            <br><small class="text-muted">Sin existencia</small>
+                                                        @else
+                                                            @php $quien = $usuarios[$row['ocultado_usuario']] ?? null; @endphp
+                                                            <span class="badge bg-dark text-white">Administrador</span>
+                                                            <br>{{ $quien ? trim($quien->first_name.' '.$quien->last_name) : 'Sin registro' }}
+                                                            <br><small class="text-muted">{{ $row['oculto'] ? 'Oculto a mano' : 'Cantidad temporal en 0' }}@if($row['ocultado_fecha']) · {{ \App\Support\SyncLog::mx($row['ocultado_fecha'])->format('d/m/Y H:i') }}@endif</small>
+                                                        @endif
+                                                    </td>
+                                                @endif
                                                 @foreach($columnasPrecio as $key => $label)
                                                     <td class="text-nowrap {{ $row[$key] !== null && $puedeCopiar ? 'copy-price-cell' : '' }} {{ isset($row['originales'][$key]) ? 'precio-ajustado' : '' }}"
                                                         @isset($row['originales'][$key]) title="Precio original: {{ number_format($row['originales'][$key], 2, '.', ',') }} (ajustado por regla)" @endisset
@@ -269,7 +293,14 @@
                                                     @php
                                                         $rowUrlBase = route('existencias.edit', [$row['empresa'], $row['id_producto'], $row['id_almacen']]);
                                                     @endphp
-                                                    <a href="{{ $rowUrlBase }}" class="btn btn-sm btn-primary">Editar</a>
+                                                    @if($estado === 'ocultos' && $row['oculto'])
+                                                        <form method="POST" action="{{ route('existencias.restaurar', [$row['empresa'], $row['id_producto'], $row['id_almacen']]) }}" class="d-inline">
+                                                            @csrf
+                                                            <button type="submit" class="btn btn-sm btn-primary">Añadir a la lista</button>
+                                                        </form>
+                                                    @else
+                                                        <a href="{{ $rowUrlBase }}" class="btn btn-sm btn-primary">Editar</a>
+                                                    @endif
                                                     @if($row['temporal'])
                                                         <form method="POST" action="{{ route('existencias.resincronizar', [$row['empresa'], $row['id_producto'], $row['id_almacen']]) }}" class="d-inline">
                                                             @csrf

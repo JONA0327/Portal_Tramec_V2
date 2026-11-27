@@ -51,7 +51,7 @@
                             <p class="text-muted mb-2">Esta fila está oculta del listado de Existencias.</p>
                             <form method="POST" action="{{ route('existencias.restaurar', [$empresa, $idProducto, $idAlmacen]) }}">
                                 @csrf
-                                <button type="submit" class="btn btn-outline-secondary">Restaurar al listado</button>
+                                <button type="submit" class="btn btn-outline-secondary">Añadir a la lista</button>
                             </form>
                         @else
                             <form method="POST" action="{{ route('existencias.ocultar', [$empresa, $idProducto, $idAlmacen]) }}"

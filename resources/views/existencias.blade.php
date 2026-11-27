@@ -23,6 +23,9 @@
         @if($esAdmin && $counts['ocultos'] > 0)
         &nbsp;·&nbsp;<a href="{{ route('existencias', ['estado' => 'ocultos', 'motivo' => 'admin']) }}" class="text-muted">{{ $counts['ocultos'] }} ocultos</a>
         @endif
+        @if($esAdmin && $counts['con_stock'] > 0)
+        &nbsp;·&nbsp;<a href="{{ route('existencias', ['estado' => 'ocultos', 'motivo' => 'con_stock']) }}" class="text-success">{{ $counts['con_stock'] }} ocultos ya con existencia</a>
+        @endif
         @if($esAdmin && $counts['editados'] > 0)
         &nbsp;·&nbsp;<a href="{{ route('existencias', ['estado' => 'editados']) }}" class="text-warning">{{ $counts['editados'] }} editados temporalmente</a>
         @endif
@@ -139,7 +142,7 @@
                         @if($estado === 'ocultos')
                             <div class="d-flex flex-wrap align-items-center mb-3" style="gap: 8px;">
                                 <span class="text-muted">Ocultado por:</span>
-                                @foreach(['' => ['Todos', $counts['ocultos'] + $counts['sin_existencia']], 'admin' => ['Administrador', $counts['ocultos']], 'sistema' => ['Sistema (sin existencia)', $counts['sin_existencia']]] as $clave => [$texto, $total])
+                                @foreach(['' => ['Todos', $counts['ocultos'] + $counts['sin_existencia']], 'admin' => ['Administrador', $counts['ocultos']], 'sistema' => ['Sistema (sin existencia)', $counts['sin_existencia']], 'con_stock' => ['Ya con existencia', $counts['con_stock']]] as $clave => [$texto, $total])
                                     <a href="{{ route('existencias', array_filter(['estado' => 'ocultos', 'motivo' => $clave])) }}"
                                         class="btn btn-sm {{ $motivo === $clave ? 'btn-primary' : 'btn-outline-secondary' }}">{{ $texto }} ({{ $total }})</a>
                                 @endforeach
@@ -266,6 +269,9 @@
                                                             <span class="badge bg-dark text-white">Administrador</span>
                                                             <br>{{ $quien ? trim($quien->first_name.' '.$quien->last_name) : 'Sin registro' }}
                                                             <br><small class="text-muted">{{ $row['oculto'] ? 'Oculto a mano' : 'Cantidad temporal en 0' }}@if($row['ocultado_fecha']) · {{ \App\Support\SyncLog::mx($row['ocultado_fecha'])->format('d/m/Y H:i') }}@endif</small>
+                                                            @if($row['con_stock'])
+                                                                <br><span class="badge bg-success text-white" title="Puedes activarlo para que vuelva a la lista">Ya hay existencia: {{ rtrim(rtrim(number_format($row['stock_real'], 2, '.', ','), '0'), '.') }}</span>
+                                                            @endif
                                                         @endif
                                                     </td>
                                                 @endif

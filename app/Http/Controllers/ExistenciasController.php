@@ -212,6 +212,9 @@ class ExistenciasController extends Controller
                 'temporal' => $temporal,
                 'oculto' => $oculto,
                 'ocultado_por' => $ocultadoPor,
+                // Oculto por un administrador pero el origen (ERP o Excel) ya reporta existencia: se avisa para que lo active.
+                'con_stock' => $ocultadoPor === 'admin' && ($usaManual ? (float) $override->cantidad_manual : $cantidadErp) > 0,
+                'stock_real' => $usaManual ? (float) $override->cantidad_manual : $cantidadErp,
                 'ocultado_usuario' => $oculto ? $override->oculto_by : ($ocultadoPor === 'admin' ? $override->updated_by : null),
                 'ocultado_fecha' => $oculto ? $override->oculto_at : ($ocultadoPor === 'admin' ? $override->updated_at : null),
                 'de_baja' => $override?->de_baja ?? false,
@@ -232,6 +235,7 @@ class ExistenciasController extends Controller
         $counts = [
             'ocultos' => $rows->where('ocultado_por', 'admin')->count(),
             'sin_existencia' => $rows->where('ocultado_por', 'sistema')->count(),
+            'con_stock' => $rows->where('con_stock', true)->count(),
             'bajas' => ProductoBaja::count(),
             'editados' => $rows->where('temporal', true)->count(),
         ];
@@ -242,7 +246,11 @@ class ExistenciasController extends Controller
         if ($estado === 'editados') {
             $filtered = $rows->where('temporal', true);
         } elseif ($estado === 'ocultos') {
-            $filtered = in_array($motivo, ['admin', 'sistema'], true) ? $rows->where('ocultado_por', $motivo) : $rows->whereNotNull('ocultado_por');
+            $filtered = match ($motivo) {
+                'admin', 'sistema' => $rows->where('ocultado_por', $motivo),
+                'con_stock' => $rows->where('con_stock', true),
+                default => $rows->whereNotNull('ocultado_por'),
+            };
         } else {
             // Sin existencia = no se muestra; reaparece sola cuando el ERP vuelve a reportar cantidad.
             $filtered = $rows->whereNull('ocultado_por');
@@ -267,8 +275,8 @@ class ExistenciasController extends Controller
             $filtered = $filtered->filter(fn (array $r) => Search::all($buscar, $r['codigo'], $r['descripcion']));
         }
 
-        // En "ocultos" van primero los del administrador ("admin" < "sistema").
-        $filtered = $filtered->sortBy($estado === 'ocultos' ? [['ocultado_por', 'asc'], ['codigo', 'asc'], ['almacen', 'asc']] : [['codigo', 'asc'], ['almacen', 'asc']])->values();
+        // En "ocultos" van primero los del administrador ("admin" < "sistema") y, de esos, los que ya tienen existencia.
+        $filtered = $filtered->sortBy($estado === 'ocultos' ? [['ocultado_por', 'asc'], ['con_stock', 'desc'], ['codigo', 'asc'], ['almacen', 'asc']] : [['codigo', 'asc'], ['almacen', 'asc']])->values();
 
         if ($agrupar) {
             // Un renglón por modelo (empresa + código): precios una sola vez y, aparte, cada almacén con su cantidad.
